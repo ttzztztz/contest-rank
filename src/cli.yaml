@@ -1,0 +1,9 @@
+name: Contest Rank
+version: "1.0"
+author: Rabbit <ttzztztz@outlook.com>
+about: Analysis contest info
+args:
+  - verbose:
+      short: v
+      long: verbose
+      help: Open verbose (DEBUG) mode

@@ -26,7 +26,7 @@ pub fn render(object: render::RenderObject) {
         println!("🏆 {:<48} {}", contest.name, contest.date);
         for player in contest.players.iter() {
             println!(
-                "  {} {:<24} ⏰{:<12} 📊{:<4} ✨{:<6}",
+                "  {} {:<24} 🍺{:<12} 📊{:<4} ✨{:<6}",
                 render_medal(player.local_rank),
                 player.username,
                 player.finish_time,
@@ -40,15 +40,15 @@ pub fn render(object: render::RenderObject) {
                 match submission.status {
                     render::SubmissionStatus::Accepted => {
                         println!(
-                            "    ✅T{} ✨{:<6} ⏰{:<12} {}",
-                            tid + 1,
+                            "    ✅{:<6} ✨{:<14} ⏰{:<12} {}",
+                            submission.title,
                             submission.score,
                             submission.finish_time,
                             render_fail_count(submission.fail_count)
                         );
                     }
                     render::SubmissionStatus::Unaccepted => {
-                        println!("    ❌T{} ✨{:<6}", tid + 1, submission.score);
+                        println!("    ❌{:<6} ✨{:<14}", submission.title, submission.score);
                     }
                 }
             }

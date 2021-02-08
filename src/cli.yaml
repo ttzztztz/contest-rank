@@ -13,3 +13,6 @@ args:
       help: Sets a custom config file path
       takes_value: true
       required: false
+  - clear_cache:
+      long: clear-cache
+      help: Clear web request cache

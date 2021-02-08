@@ -1,8 +1,7 @@
-use crate::model::{config::Settings, website::WebsiteContest};
-
-pub type RenderFunction = fn(settings: Settings) -> Vec<WebsiteContest>;
+use crate::model::website::WebsiteContest;
 
 pub trait Renderable {
-    fn render(settings: Settings) -> Vec<WebsiteContest>;
-    fn website_name() -> String;
+    fn render_config(&self) -> Vec<WebsiteContest>;
+    fn render(&self, contests: &Vec<String>, users: &Vec<String>) -> Vec<WebsiteContest>;
+    fn website_name(&self) -> String;
 }

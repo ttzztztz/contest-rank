@@ -1,10 +1,10 @@
 use reqwest::{Method, Request, StatusCode};
-use serde::de::DeserializeOwned;
+use serde::{de::DeserializeOwned};
 use std::io;
 
 const MAX_RETRY_COUNT: u32 = 3;
 
-pub async fn send_request<T>(url: String) -> Result<T, Box<dyn std::error::Error>>
+pub async fn send_request<T>(url: &str) -> Result<T, Box<dyn std::error::Error>>
 where
     T: DeserializeOwned,
 {

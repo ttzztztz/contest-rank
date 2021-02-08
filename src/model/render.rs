@@ -11,6 +11,7 @@ pub struct Submission {
     pub finish_time: String,
     pub status: SubmissionStatus,
     pub score: u32,
+    pub title: String,
 }
 
 pub struct User {

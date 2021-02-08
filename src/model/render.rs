@@ -10,12 +10,13 @@ pub struct Submission {
     pub fail_count: u32,
     pub finish_time: String,
     pub status: SubmissionStatus,
+    pub score: u32,
 }
 
 pub struct User {
     pub username: String,
     pub country: String,
-    pub finish_time: i64,
+    pub finish_time: String,
     pub global_rank: u32,
     pub score: u32,
     pub local_rank: u32,

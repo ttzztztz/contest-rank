@@ -8,13 +8,13 @@ fn render_medal(local_rank: u32) -> String {
     } else if local_rank == 3 {
         return String::from("🥉");
     } else {
-        return String::from("");
+        return String::from("👴");
     }
 }
 
 fn render_fail_count(fail_count: u32) -> String {
     if fail_count == 0 {
-        return String::from("");
+        return String::from("🌟 BUG FREE");
     } else {
         return String::from(format!("🐛 {}", fail_count));
     }
@@ -25,12 +25,13 @@ pub fn render(object: render::RenderObject) {
     for contest in object.data.iter() {
         println!("🏆 {:<48} {}", contest.name, contest.date);
         for player in contest.players.iter() {
-            let render_username =
-                player.username.clone() + render_medal(player.local_rank).as_str();
-
             println!(
-                "  👴 {:<24} ⏰ {:<12} 📊 {:<4} ✨ {:<6}",
-                render_username, player.finish_time, player.global_rank, player.score
+                "  {} {:<24} ⏰{:<12} 📊{:<4} ✨{:<6}",
+                render_medal(player.local_rank),
+                player.username,
+                player.finish_time,
+                player.global_rank,
+                player.score
             );
 
             for tid in 0..player.submissions.len() {
@@ -39,24 +40,27 @@ pub fn render(object: render::RenderObject) {
                 match submission.status {
                     render::SubmissionStatus::Accepted => {
                         println!(
-                            "    ✅ T{} ⏰ {:<12} {}",
-                            tid,
+                            "    ✅T{} ✨{:<6} ⏰{:<12} {}",
+                            tid + 1,
+                            submission.score,
                             submission.finish_time,
                             render_fail_count(submission.fail_count)
                         );
                     }
                     render::SubmissionStatus::Unaccepted => {
-                        println!("    ❌ T{}", tid);
+                        println!("    ❌T{} ✨{:<6}", tid + 1, submission.score);
                     }
                 }
             }
         }
+        println!("");
     }
 
+    println!("🍎 Overall Data");
     // render aggregate data
     for aggregate in object.aggregate.iter() {
         println!(
-            " 👴 {:<24} ✨ {:<6} 🏅️ {:<3} 📊 {:<3}",
+            "  👴 {:<24} ✨{:<6} 🏅️{:<3} ⚡️{:<3}",
             aggregate.username, aggregate.total_score, aggregate.win_count, aggregate.attend_count
         );
     }

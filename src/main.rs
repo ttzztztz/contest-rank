@@ -9,6 +9,7 @@ use web::{leetcode::LeetcodeWeb, stretch::StretchWeb};
 mod model;
 mod service;
 mod web;
+mod utils;
 
 fn handler_hashmap() -> HashMap<String, RenderFunction> {
     let mut handler_hashmap: HashMap<String, RenderFunction> = HashMap::new();

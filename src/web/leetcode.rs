@@ -1,31 +1,36 @@
-use crate::model::{config::Settings, render::Submission, renderable::Renderable, website::{WebsiteContest, WebsiteUser}};
-use chrono::{prelude::Utc, TimeZone};
-use reqwest::{Method, Request, StatusCode};
-use serde::{de::DeserializeOwned, Deserialize};
-use std::collections::HashSet;
-use std::io;
+use crate::model::{
+    config::Settings,
+    render::{Submission, SubmissionStatus},
+    renderable::Renderable,
+    website::{WebsiteContest, WebsiteUser},
+};
+use crate::utils::{finish_time, null, request};
+use chrono::{prelude, TimeZone};
+use serde::Deserialize;
+use std::collections::{HashMap, HashSet};
 use tokio::runtime::Runtime;
 
 #[derive(Deserialize)]
 struct SubmissionItem {
     fail_count: u32,
-    date: u64,
+    date: i64,
     question_id: u32,
     submission_id: u32,
 }
 
 #[derive(Deserialize)]
 struct RankItem {
+    #[serde(deserialize_with = "null::parse_null_or_string")]
     country_name: String,
+
     finish_time: i64,
     rank: u32,
     score: u32,
     username: String,
-    data_region: String,
 }
 #[derive(Deserialize)]
 struct LeetcodeRankRequest {
-    submissions: Vec<SubmissionItem>,
+    submissions: Vec<HashMap<String, SubmissionItem>>,
     user_num: u64,
     is_past: bool,
     total_rank: Vec<RankItem>,
@@ -38,35 +43,18 @@ struct LeetcodeContestInfo {
 }
 
 #[derive(Deserialize)]
-struct LeetcodeContestInfoRequest {
-    contest: LeetcodeContestInfo,
+struct LeetcodeQuestionInfo {
+    credit: u32,
+    id: u32,
+    question_id: u32,
+    title: String,
+    title_slug: String,
 }
 
-const MAX_RETRY_COUNT: u32 = 3;
-
-async fn send_request<T>(url: String) -> Result<T, Box<dyn std::error::Error>>
-where
-    T: DeserializeOwned,
-{
-    for _ in 1u32..=MAX_RETRY_COUNT {
-        let client = reqwest::Client::new();
-        let request = Request::new(Method::GET, url.parse().unwrap());
-
-        let resp = client.execute(request).await?;
-        let status: StatusCode = resp.status();
-        if status.as_u16() >= 400 {
-            let resp_text = resp.text().await?;
-            println!("[ERROR] status_code={}, {}", status, resp_text);
-        } else {
-            let response_obj = resp.json::<T>().await?;
-            return Ok(response_obj);
-        }
-    }
-
-    return Err(Box::new(io::Error::new(
-        io::ErrorKind::InvalidData,
-        "Error request after max retry count",
-    )));
+#[derive(Deserialize)]
+struct LeetcodeContestInfoRequest {
+    contest: LeetcodeContestInfo,
+    questions: Vec<LeetcodeQuestionInfo>,
 }
 
 async fn send_contest_info_request(
@@ -86,7 +74,7 @@ async fn send_contest_info_request(
         id = contest_id,
         contest_type = contest_type_full
     );
-    let res = send_request::<LeetcodeContestInfoRequest>(url).await?;
+    let res = request::send_request::<LeetcodeContestInfoRequest>(url).await?;
     return Ok(res);
 }
 
@@ -110,7 +98,7 @@ async fn send_contest_rank_request(
         page = page
     );
 
-    let res = send_request::<LeetcodeRankRequest>(url).await?;
+    let res = request::send_request::<LeetcodeRankRequest>(url).await?;
     return Ok(res);
 }
 
@@ -119,9 +107,10 @@ async fn request_leetcode(
     contest_id: u32,
     players: Vec<String>,
 ) -> Result<WebsiteContest, Box<dyn std::error::Error>> {
-    let contest_info = send_contest_info_request(&contest_type, contest_id)
-        .await?
-        .contest;
+    let contest_req = send_contest_info_request(&contest_type, contest_id).await?;
+
+    let contest_info = contest_req.contest;
+    let questions = contest_req.questions;
 
     let mut searching_players = HashSet::<String>::new();
     for player in players.iter() {
@@ -131,43 +120,75 @@ async fn request_leetcode(
     let mut website_players = Vec::<WebsiteUser>::new();
     let mut page = 1u32;
     while !searching_players.is_empty() {
+        println!("[INFO] ({}), current page={}", contest_info.title, page); // todo: verbose
+
         let rank = send_contest_rank_request(&contest_type, contest_id, page).await?;
         assert_eq!(rank.submissions.len(), rank.total_rank.len());
 
-        let n = rank.submissions.len();
-        for i in 0..n {
-            let submission = &rank.submissions[i];
+        let playeres_in_page = rank.submissions.len();
+        for i in 0..playeres_in_page {
+            let submission_hashmap = &rank.submissions[i];
             let rank = &rank.total_rank[i];
 
-            if searching_players.contains(&rank.username) {
-                searching_players.remove(&rank.username);
-                let submissions_vec = Vec::<Submission>::new();
-
-                website_players.push(WebsiteUser {
-                    username: rank.username.clone(),
-                    country: rank.country_name.clone(),
-                    finish_time: rank.finish_time - contest_info.start_time,
-                    global_rank: rank.rank,
-                    score: rank.score,
-
-                    submissions: submissions_vec,
-                });
+            if !searching_players.contains(&rank.username) {
+                continue;
             }
+
+            searching_players.remove(&rank.username);
+            let mut submissions_vec = Vec::<Submission>::new();
+
+            for question in questions.iter() {
+                let question_id = question.question_id;
+                let question_id_str = question_id.to_string();
+
+                match submission_hashmap.get(&question_id_str) {
+                    None => {
+                        submissions_vec.push(Submission {
+                            fail_count: 0,
+                            finish_time: String::from(""),
+                            status: SubmissionStatus::Unaccepted,
+                            score: 0,
+                        });
+                    }
+                    Some(submission) => {
+                        submissions_vec.push(Submission {
+                            fail_count: submission.fail_count,
+                            finish_time: finish_time::seconds_to_finish_time(
+                                submission.date - contest_info.start_time,
+                            ),
+                            status: SubmissionStatus::Accepted,
+                            score: question.credit,
+                        });
+                    }
+                }
+            }
+
+            website_players.push(WebsiteUser {
+                username: rank.username.clone(),
+                country: rank.country_name.clone(),
+                finish_time: rank.finish_time - contest_info.start_time,
+                global_rank: rank.rank,
+                score: rank.score,
+                submissions: submissions_vec,
+            });
         }
+
         page += 1u32;
     }
 
     return Ok(WebsiteContest {
-        name: contest_info.title,
-        date: Utc
+        name: String::from("LeetCode ") + &contest_info.title,
+        date: prelude::Local
             .timestamp(contest_info.start_time, 0)
-            .format("%Y-%m-%d %a %H:%M")
+            .format_localized("%Y-%m-%d %a %H:%M", prelude::Locale::ja_JP)
             .to_string(),
-        players: vec![],
+        players: website_players,
     });
 }
 
-pub struct LeetcodeWeb {}
+pub struct LeetcodeWeb {
+    
+}
 
 impl Renderable for LeetcodeWeb {
     fn render(settings: Settings) -> Vec<WebsiteContest> {

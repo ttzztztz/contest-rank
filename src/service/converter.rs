@@ -1,9 +1,11 @@
-use std::collections::HashMap;
-
-use crate::model::{
-    render::{Contest, RenderObject, User, UserAggregate},
-    website::WebsiteContest,
+use crate::{
+    model::{
+        render::{Contest, RenderObject, User, UserAggregate},
+        website::WebsiteContest,
+    },
+    utils::finish_time,
 };
+use std::collections::HashMap;
 
 pub fn convert_website_object(website_contests: Vec<WebsiteContest>) -> RenderObject {
     let mut data = Vec::<Contest>::new();
@@ -17,7 +19,7 @@ pub fn convert_website_object(website_contests: Vec<WebsiteContest>) -> RenderOb
             players.push(User {
                 username: player.username.clone(),
                 country: player.country.clone(),
-                finish_time: player.finish_time, // todo: finish_time format
+                finish_time: finish_time::seconds_to_finish_time(player.finish_time),
                 global_rank: player.global_rank,
                 score: player.score,
                 submissions: player.submissions.to_vec(),

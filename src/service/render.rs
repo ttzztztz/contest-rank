@@ -23,7 +23,7 @@ fn render_fail_count(fail_count: u32) -> String {
 pub fn render(object: render::RenderObject) {
     // render for each contest
     for contest in object.data.iter() {
-        println!("🏆 {:<48}", contest.name);
+        println!("🏆 {:<48} {}", contest.name, contest.date);
         for player in contest.players.iter() {
             let render_username =
                 player.username.clone() + render_medal(player.local_rank).as_str();

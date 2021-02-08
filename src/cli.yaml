@@ -4,6 +4,7 @@ author: Rabbit <ttzztztz@outlook.com>
 about: Analysis contest info
 args:
   - verbose:
+      short: v
       long: verbose
       help: Open verbose (DEBUG) mode
   - config:

@@ -1,4 +1,4 @@
-use std::{collections::HashMap};
+use std::collections::HashMap;
 
 use crate::model::{
     render::{Contest, RenderObject, User, UserAggregate},
@@ -8,7 +8,7 @@ use crate::model::{
 pub fn convert_website_object(website_contests: Vec<WebsiteContest>) -> RenderObject {
     let mut data = Vec::<Contest>::new();
     let mut aggregate = Vec::<UserAggregate>::new();
-    let mut user_hashtable: HashMap<String, usize> = HashMap::new();
+    let mut user_hashtable = HashMap::<String, usize>::new();
 
     for web_contest in website_contests.iter() {
         let mut players = Vec::<User>::new();

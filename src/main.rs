@@ -14,7 +14,6 @@ fn handler_hashmap() -> HashMap<String, RenderFunction> {
     let mut handler_hashmap: HashMap<String, RenderFunction> = HashMap::new();
     handler_hashmap.insert(LeetcodeWeb::website_name(), LeetcodeWeb::render);
     handler_hashmap.insert(StretchWeb::website_name(), StretchWeb::render);
-
     handler_hashmap
 }
 

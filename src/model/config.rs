@@ -6,3 +6,8 @@ pub struct Config {
     pub contests: Vec<String>,
     pub website: String,
 }
+
+pub struct Settings {
+    pub config: Config,
+    pub verbose: bool,
+}

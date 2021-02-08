@@ -1,7 +1,7 @@
-use super::super::model::config;
+use crate::model::config;
 use std::fs::File;
 
-pub fn read_config(path: String) -> config::Config {
+pub fn read_config(path: &str) -> config::Config {
     let default_config = config::Config {
         users: vec![],
         contests: vec![],

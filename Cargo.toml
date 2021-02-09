@@ -14,3 +14,4 @@ clap = { version = "2.33", features = ["yaml"] }
 chrono = { version = "0.4.19", features = ["unstable-locales"] }
 reqwest = { version = "0.11", features = ["json"] }
 indexmap = { version = "1.6.1", features = ["std"] }
+futures = "0.3.12"

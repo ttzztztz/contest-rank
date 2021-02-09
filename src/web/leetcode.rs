@@ -1,16 +1,18 @@
-use crate::utils::{finish_time, null, request};
-use crate::{
-    model::{
-        config::LeetcodeConfig,
-        render::{Submission, SubmissionStatus},
-        renderable::Renderable,
-        website::{WebsiteContest, WebsiteUser},
-    },
-    service::cache::{get_cache, set_cache},
+use crate::model::{
+    config::LeetcodeConfig,
+    render::{Submission, SubmissionStatus},
+    renderable::Renderable,
+    website::{WebsiteContest, WebsiteUser},
 };
+use crate::service::cache::Cache;
+use crate::utils::{finish_time, null, request};
 use chrono::{prelude, TimeZone};
+use futures::future;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::{Arc, RwLock},
+};
 use tokio::runtime::Runtime;
 
 #[derive(Serialize, Deserialize)]
@@ -63,7 +65,10 @@ struct LeetcodeContestInfoRequest {
 pub struct LeetcodeWeb {
     pub verbose: bool,
     pub config: LeetcodeConfig,
+    pub cache: Arc<RwLock<Cache>>,
 }
+
+const MAX_CONCURRENT_PAGE: u32 = 4u32;
 
 impl LeetcodeWeb {
     async fn send_contest_info_request(
@@ -110,7 +115,9 @@ impl LeetcodeWeb {
         );
 
         if self.config.cache {
-            if let Some(memo) = get_cache::<LeetcodeRankRequest>(&url) {
+            let cloned_arc = self.cache.clone();
+            let read_lock = cloned_arc.try_read().unwrap();
+            if let Some(memo) = read_lock.get_cache::<LeetcodeRankRequest>(&url) {
                 if self.verbose {
                     println!("[INFO] cache hit request url={}", url);
                 }
@@ -120,10 +127,12 @@ impl LeetcodeWeb {
 
         let res = request::send_request::<LeetcodeRankRequest>(&url).await?;
         if self.config.cache && res.is_past {
+            let cloned_arc = self.cache.clone();
+            let mut write_lock = cloned_arc.try_write().unwrap();
             if self.verbose {
                 println!("[INFO] cache set url={}", url);
             }
-            set_cache(&url, &res);
+            write_lock.set_cache(&url, &res);
         }
         return Ok(res);
     }
@@ -148,68 +157,83 @@ impl LeetcodeWeb {
 
         let mut website_players = Vec::<WebsiteUser>::new();
         let mut page = 1u32;
-        while !searching_players.is_empty() && (page + 1u32) * 25u32 < self.config.max_rank {
-            if self.verbose {
-                println!("[INFO] ({}), current page={}", contest_info.title, page);
-            }
-
-            let rank = self
-                .send_contest_rank_request(&contest_type, contest_id, page)
-                .await?;
-            assert_eq!(rank.submissions.len(), rank.total_rank.len());
-
-            let playeres_in_page = rank.submissions.len();
-            for i in 0..playeres_in_page {
-                let submission_hashmap = &rank.submissions[i];
-                let rank = &rank.total_rank[i];
-
-                if !searching_players.contains(&rank.username) {
-                    continue;
+        while !searching_players.is_empty() && page * 25u32 < self.config.max_rank {
+            let mut ranks = vec![];
+            for page_offset in 0u32..MAX_CONCURRENT_PAGE {
+                if self.verbose {
+                    println!(
+                        "[INFO] ({}), current page={}",
+                        contest_info.title,
+                        page + page_offset
+                    );
                 }
+                ranks.push(self.send_contest_rank_request(
+                    &contest_type,
+                    contest_id,
+                    page + page_offset,
+                ))
+            }
+            let ranks = future::join_all(ranks).await;
+            // todo: excceed page limit check
 
-                searching_players.remove(&rank.username);
-                let mut submissions_vec = Vec::<Submission>::new();
+            for rank_result in ranks.iter() {
+                if let Ok(rank) = rank_result {
+                    assert_eq!(rank.submissions.len(), rank.total_rank.len());
 
-                for question_index in 0..questions.len() {
-                    let question = &questions[question_index];
-                    let question_id = question.question_id;
-                    let question_id_str = question_id.to_string();
+                    let playeres_in_page = rank.submissions.len();
+                    for i in 0..playeres_in_page {
+                        let submission_hashmap = &rank.submissions[i];
+                        let rank = &rank.total_rank[i];
 
-                    match submission_hashmap.get(&question_id_str) {
-                        None => {
-                            submissions_vec.push(Submission {
-                                fail_count: 0,
-                                finish_time: String::from(""),
-                                status: SubmissionStatus::Unaccepted,
-                                score: 0,
-                                title: format!("T{}", question_index + 1),
-                            });
+                        if !searching_players.contains(&rank.username) {
+                            continue;
                         }
-                        Some(submission) => {
-                            submissions_vec.push(Submission {
-                                fail_count: submission.fail_count,
-                                finish_time: finish_time::seconds_to_finish_time(
-                                    submission.date - contest_info.start_time,
-                                ),
-                                status: SubmissionStatus::Accepted,
-                                score: question.credit,
-                                title: format!("T{}", question_index + 1),
-                            });
+
+                        searching_players.remove(&rank.username);
+                        let mut submissions_vec = Vec::<Submission>::new();
+
+                        for question_index in 0..questions.len() {
+                            let question = &questions[question_index];
+                            let question_id = question.question_id;
+                            let question_id_str = question_id.to_string();
+
+                            match submission_hashmap.get(&question_id_str) {
+                                None => {
+                                    submissions_vec.push(Submission {
+                                        fail_count: 0,
+                                        finish_time: String::from(""),
+                                        status: SubmissionStatus::Unaccepted,
+                                        score: 0,
+                                        title: format!("T{}", question_index + 1),
+                                    });
+                                }
+                                Some(submission) => {
+                                    submissions_vec.push(Submission {
+                                        fail_count: submission.fail_count,
+                                        finish_time: finish_time::seconds_to_finish_time(
+                                            submission.date - contest_info.start_time,
+                                        ),
+                                        status: SubmissionStatus::Accepted,
+                                        score: question.credit,
+                                        title: format!("T{}", question_index + 1),
+                                    });
+                                }
+                            }
                         }
+
+                        website_players.push(WebsiteUser {
+                            username: rank.username.clone(),
+                            country: rank.country_name.clone(),
+                            finish_time: rank.finish_time - contest_info.start_time,
+                            global_rank: rank.rank,
+                            score: rank.score,
+                            submissions: submissions_vec,
+                        });
                     }
                 }
-
-                website_players.push(WebsiteUser {
-                    username: rank.username.clone(),
-                    country: rank.country_name.clone(),
-                    finish_time: rank.finish_time - contest_info.start_time,
-                    global_rank: rank.rank,
-                    score: rank.score,
-                    submissions: submissions_vec,
-                });
             }
 
-            page += 1u32;
+            page += MAX_CONCURRENT_PAGE;
         }
 
         return Ok(WebsiteContest {
@@ -221,13 +245,17 @@ impl LeetcodeWeb {
             players: website_players,
         });
     }
-}
 
-impl Renderable for LeetcodeWeb {
-    fn render(&self, contests: &Vec<String>, users: &Vec<String>) -> Vec<WebsiteContest> {
+    async fn __render(
+        &self,
+        contests: &Vec<String>,
+        users: &Vec<String>,
+    ) -> Vec<WebsiteContest> {
         let verbose = false;
 
         let mut web_contests = Vec::<WebsiteContest>::new();
+        let mut contest_futures = vec![];
+
         for contest_id in contests.iter() {
             if contest_id.is_empty() {
                 continue;
@@ -244,20 +272,35 @@ impl Renderable for LeetcodeWeb {
                     );
                 }
 
-                let runtime = Runtime::new().unwrap();
-                match runtime.block_on(self.request_leetcode(
+                contest_futures.push(self.request_leetcode(
                     contest_type,
                     contest_number,
                     users.to_vec(),
-                )) {
-                    Ok(resp) => web_contests.push(resp),
-                    Err(e) => panic!("[Error] when fetching contest {}", e),
-                }
+                ));
             } else {
                 panic!("contest_id={} invalid", contest_id)
             }
         }
+
+        let future = future::join_all(contest_futures).await;
+        for future_result in future.iter() {
+            match future_result {
+                Ok(user) => {
+                    web_contests.push(user.clone());
+                }
+                Err(e) => {
+                    println!("[ERROR] when fetching contest {}", e);
+                }
+            }
+        }
         return web_contests;
+    }
+}
+
+impl Renderable for LeetcodeWeb {
+    fn render(&self, contests: &Vec<String>, users: &Vec<String>) -> Vec<WebsiteContest> {
+        let runtime = Runtime::new().unwrap();
+        return runtime.block_on(self.__render(contests, users));
     }
 
     fn website_name(&self) -> String {

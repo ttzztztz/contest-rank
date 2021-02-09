@@ -1,5 +1,6 @@
 use super::render::{Contest, Submission};
 
+#[derive(Clone)]
 pub struct WebsiteUser {
     pub username: String,
     pub country: String,

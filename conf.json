@@ -1,9 +1,9 @@
 {
   "website": "leetcode",
   "leetcode": {
-    "users": ["ttzztztz", "sleepybag"],
-    "contests": ["w221", "b45"],
-    "max_rank": 2000,
+    "users": ["ttzztztz", "sleepybag", "wisdompeak", "chiyu1996"],
+    "contests": ["w227", "b45", "w226", "w225", "b44", "w224", "w223", "b43"],
+    "max_rank": 4000,
     "cache": true,
     "live": {
       "interval": 300,

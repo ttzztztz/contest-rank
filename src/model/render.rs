@@ -34,6 +34,7 @@ pub struct UserAggregate {
     pub total_score: u32,
 }
 
+#[derive(Clone)]
 pub struct Contest<T = User> {
     pub name: String,
     pub date: String,

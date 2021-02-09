@@ -2,8 +2,15 @@
 extern crate clap;
 use clap::App;
 use model::{config::Settings, renderable::Renderable};
-use service::{cache::clear_cache, converter::convert_website_object, render};
-use std::collections::HashMap;
+use service::{
+    cache::{clear_cache, Cache},
+    converter::convert_website_object,
+    render,
+};
+use std::{
+    collections::HashMap,
+    sync::{Arc, RwLock},
+};
 use web::leetcode::LeetcodeWeb;
 
 mod model;
@@ -11,13 +18,17 @@ mod service;
 mod utils;
 mod web;
 
-fn handler_hashmap(settings: &Settings) -> HashMap<String, Box<dyn Renderable>> {
+fn handler_hashmap(
+    settings: &Settings,
+    cache: Arc<RwLock<Cache>>,
+) -> HashMap<String, Box<dyn Renderable>> {
     let mut handler_hashmap: HashMap<String, Box<dyn Renderable>> = HashMap::new();
     let verbose = settings.verbose;
 
     let leetcode_web = Box::from(LeetcodeWeb {
         verbose,
         config: settings.config.leetcode.clone(),
+        cache,
     });
     handler_hashmap.insert(leetcode_web.website_name(), leetcode_web);
 
@@ -28,6 +39,7 @@ fn handler_hashmap(settings: &Settings) -> HashMap<String, Box<dyn Renderable>> 
 fn main() {
     let yaml = load_yaml!("./cli.yaml");
     let matches = App::from_yaml(yaml).get_matches();
+    let cache = Arc::new(RwLock::new(Cache::new()));
 
     let force_clear_cache = matches.occurrences_of("clear_cache") >= 1;
     if force_clear_cache {
@@ -40,7 +52,7 @@ fn main() {
     let config = service::config::read_config(config_path);
 
     let settings = model::config::Settings { config, verbose };
-    let handlers = handler_hashmap(&settings);
+    let handlers = handler_hashmap(&settings, cache);
 
     match handlers.get(&settings.config.website) {
         Some(website) => {

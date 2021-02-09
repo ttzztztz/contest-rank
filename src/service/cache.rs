@@ -87,40 +87,54 @@ pub fn clear_cache() -> Result<(), io::Error> {
         }
     }
 }
+pub struct Cache {
+    data: CacheFileType,
+}
 
-pub fn set_cache<T>(key: &str, value: &T)
-where
-    T: DeserializeOwned + Serialize,
-{
-    match serde_json::to_string(&value) {
-        Ok(value_json) => {
-            let mut cache_file_data = read_cache_file();
-            cache_file_data.insert(key.to_string(), value_json);
-            write_cache_file(cache_file_data);
+impl Cache {
+    pub fn new() -> Cache {
+        return Cache {
+            data: read_cache_file(),
+        };
+    }
+
+    pub fn set_cache<T>(&mut self, key: &str, value: &T)
+    where
+        T: DeserializeOwned + Serialize,
+    {
+        match serde_json::to_string(&value) {
+            Ok(value_json) => {
+                self.data.insert(key.to_string(), value_json);
+            }
+            Err(e) => {
+                println!("[WARN] Error when writing cache key={}, e={}", key, e);
+            }
         }
-        Err(e) => {
-            println!("[WARN] Error when writing cache key={}, e={}", key, e);
+    }
+
+    pub fn get_cache<T>(&self, key: &str) -> Option<T>
+    where
+        T: DeserializeOwned + Serialize,
+    {
+        match self.data.get(key) {
+            None => {
+                return None;
+            }
+            Some(buf) => match serde_json::from_str(buf.as_str()) {
+                Err(e) => {
+                    println!("[WARN] Error when parsing cache key={}, e={}", key, e);
+                    return None;
+                }
+                Ok(val) => {
+                    return Some(val);
+                }
+            },
         }
     }
 }
 
-pub fn get_cache<T>(key: &str) -> Option<T>
-where
-    T: DeserializeOwned + Serialize,
-{
-    let cache_file = read_cache_file();
-    match cache_file.get(key) {
-        None => {
-            return None;
-        }
-        Some(buf) => match serde_json::from_str(buf.as_str()) {
-            Err(e) => {
-                println!("[WARN] Error when parsing cache key={}, e={}", key, e);
-                return None;
-            }
-            Ok(val) => {
-                return Some(val);
-            }
-        },
+impl Drop for Cache {
+    fn drop(&mut self) {
+        write_cache_file(self.data.clone());
     }
 }

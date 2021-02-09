@@ -7,13 +7,13 @@ use crate::model::{
 use crate::service::cache::Cache;
 use crate::utils::{finish_time, null, request};
 use chrono::{prelude, TimeZone};
-use futures::future;
+use futures::{executor, future};
 use serde::{Deserialize, Serialize};
 use std::{
+    cell::RefCell,
     collections::{HashMap, HashSet},
     sync::{Arc, RwLock},
 };
-use tokio::runtime::Runtime;
 
 #[derive(Serialize, Deserialize)]
 struct SubmissionItem {
@@ -66,6 +66,8 @@ pub struct LeetcodeWeb {
     pub verbose: bool,
     pub config: LeetcodeConfig,
     pub cache: Arc<RwLock<Cache>>,
+
+    pub enable_cache: RefCell<bool>,
 }
 
 const MAX_CONCURRENT_PAGE: u32 = 4u32;
@@ -114,7 +116,7 @@ impl LeetcodeWeb {
             page = page
         );
 
-        if self.config.cache {
+        if *self.enable_cache.borrow() == true {
             let cloned_arc = self.cache.clone();
             let read_lock = cloned_arc.try_read().unwrap();
             if let Some(memo) = read_lock.get_cache::<LeetcodeRankRequest>(&url) {
@@ -126,7 +128,7 @@ impl LeetcodeWeb {
         }
 
         let res = request::send_request::<LeetcodeRankRequest>(&url).await?;
-        if self.config.cache && res.is_past {
+        if *self.enable_cache.borrow() == true && res.is_past {
             let cloned_arc = self.cache.clone();
             let mut write_lock = cloned_arc.try_write().unwrap();
             if self.verbose {
@@ -246,11 +248,7 @@ impl LeetcodeWeb {
         });
     }
 
-    async fn __render(
-        &self,
-        contests: &Vec<String>,
-        users: &Vec<String>,
-    ) -> Vec<WebsiteContest> {
+    async fn __render(&self, contests: &Vec<String>, users: &Vec<String>) -> Vec<WebsiteContest> {
         let verbose = false;
 
         let mut web_contests = Vec::<WebsiteContest>::new();
@@ -267,7 +265,7 @@ impl LeetcodeWeb {
 
                 if verbose {
                     println!(
-                        "[LOG] Contest Type={}, number={}",
+                        "[INFO] Contest Type={}, number={}",
                         contest_type, contest_number
                     );
                 }
@@ -295,12 +293,22 @@ impl LeetcodeWeb {
         }
         return web_contests;
     }
+
+    async fn render(&self, contests: &Vec<String>, users: &Vec<String>) -> Vec<WebsiteContest> {
+        *self.enable_cache.borrow_mut() = self.config.cache;
+        return self.__render(contests, users).await;
+    }
 }
 
 impl Renderable for LeetcodeWeb {
-    fn render(&self, contests: &Vec<String>, users: &Vec<String>) -> Vec<WebsiteContest> {
-        let runtime = Runtime::new().unwrap();
-        return runtime.block_on(self.__render(contests, users));
+    fn new(verbose: bool, config: LeetcodeConfig, cache: Arc<RwLock<Cache>>) -> Self {
+        return LeetcodeWeb {
+            verbose,
+            config,
+            cache,
+
+            enable_cache: RefCell::new(false),
+        };
     }
 
     fn website_name(&self) -> String {
@@ -309,6 +317,14 @@ impl Renderable for LeetcodeWeb {
 
     fn render_config(&self) -> Vec<WebsiteContest> {
         let config = &self.config;
-        return self.render(&config.contests, &config.users);
+        return executor::block_on(self.render(&config.contests, &config.users));
+    }
+
+    fn render_live(&self) -> Vec<WebsiteContest> {
+        *self.enable_cache.borrow_mut() = false;
+        let contests = &self.config.live_contests;
+        let users = &self.config.live_users;
+
+        return executor::block_on(self.__render(contests, users));
     }
 }

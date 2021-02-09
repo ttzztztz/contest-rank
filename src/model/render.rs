@@ -1,5 +1,5 @@
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub enum SubmissionStatus {
     Accepted,
     Unaccepted,
@@ -45,4 +45,6 @@ pub struct Contest<T = User> {
 pub struct RenderObject {
     pub data: Vec<Contest>,
     pub aggregate: Vec<UserAggregate>,
+
+    pub is_live: bool,
 }

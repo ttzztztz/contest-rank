@@ -7,7 +7,10 @@ use crate::{
 };
 use std::collections::HashMap;
 
-pub fn convert_website_object(website_contests: Vec<WebsiteContest>) -> RenderObject {
+pub fn convert_website_object(
+    website_contests: Vec<WebsiteContest>,
+    is_live: bool,
+) -> RenderObject {
     let mut data = Vec::<Contest>::new();
     let mut aggregate = Vec::<UserAggregate>::new();
     let mut user_hashtable = HashMap::<String, usize>::new();
@@ -80,5 +83,9 @@ pub fn convert_website_object(website_contests: Vec<WebsiteContest>) -> RenderOb
         return rhs.win_count.cmp(&lhs.win_count);
     });
 
-    return RenderObject { data, aggregate };
+    return RenderObject {
+        data,
+        aggregate,
+        is_live,
+    };
 }

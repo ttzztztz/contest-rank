@@ -4,15 +4,15 @@ use serde::{Deserialize, Serialize};
 pub struct Config {
     pub website: String,
     pub leetcode: LeetcodeConfig,
+    pub live: LiveConfig,
 }
 
 pub trait WebsiteConfig {}
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct LiveConfig {
-    pub interval: i32,
-    pub contest: String,
-    pub last: i32,
+    pub interval: u64,
+    pub last: i64,
 }
 
 pub struct Settings {
@@ -24,7 +24,9 @@ pub struct Settings {
 pub struct LeetcodeConfig {
     pub users: Vec<String>,
     pub contests: Vec<String>,
-    pub live: LiveConfig,
+
+    pub live_contests: Vec<String>,
+    pub live_users: Vec<String>,
     pub max_rank: u32,
     pub cache: bool,
 }

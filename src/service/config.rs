@@ -6,15 +6,18 @@ pub fn read_config(path: &str) -> config::Config {
         leetcode: config::LeetcodeConfig {
             users: vec![],
             contests: vec![],
+
+            live_users: vec![],
+            live_contests: vec![],
+
             cache: false,
-            live: config::LiveConfig {
-                interval: 0i32,
-                contest: String::from(""),
-                last: 0i32,
-            },
             max_rank: 2000,
         },
         website: String::from(""),
+        live: config::LiveConfig {
+            interval: 600u64,
+            last: 5400i64,
+        },
     };
 
     match File::open(path) {

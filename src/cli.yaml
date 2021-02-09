@@ -1,5 +1,5 @@
 name: Contest Rank
-version: "1.0"
+version: "1.0.0"
 author: Rabbit <ttzztztz@outlook.com>
 about: Analysis contest info
 args:
@@ -16,3 +16,7 @@ args:
   - clear_cache:
       long: clear-cache
       help: Clear web request cache
+  - live:
+      short: l
+      long: live
+      help: Live watch a contest

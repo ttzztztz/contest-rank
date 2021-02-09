@@ -1,14 +1,16 @@
 {
   "website": "leetcode",
   "leetcode": {
-    "users": ["ttzztztz", "sleepybag", "wisdompeak", "chiyu1996"],
+    "users": ["ttzztztz", "sleepybag", "wisdompeak", "chiyu1996", "blackskygg"],
     "contests": ["w227", "b45", "w226", "w225", "b44", "w224", "w223", "b43"],
+
+    "live_users": ["ttzztztz", "wisdompeak"],
+    "live_contests": ["w224"],
     "max_rank": 4000,
-    "cache": true,
-    "live": {
-      "interval": 300,
-      "contest": "w222",
-      "last": 5400
-    }
+    "cache": true
+  },
+  "live": {
+    "interval": 300,
+    "last": 5400
   }
 }

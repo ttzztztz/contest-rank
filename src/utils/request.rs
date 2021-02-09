@@ -1,18 +1,18 @@
-use reqwest::{Method, Request, StatusCode};
-use serde::{de::DeserializeOwned};
+use reqwest::StatusCode;
+use serde::de::DeserializeOwned;
 use std::io;
 
 const MAX_RETRY_COUNT: u32 = 3;
+const USER_AGENT: &'static str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 11_2_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.146 Safari/537.36";
 
 pub async fn send_request<T>(url: &str) -> Result<T, Box<dyn std::error::Error>>
 where
     T: DeserializeOwned,
 {
     for _ in 1u32..=MAX_RETRY_COUNT {
-        let client = reqwest::Client::new();
-        let request = Request::new(Method::GET, url.parse().unwrap());
+        let client = reqwest::Client::builder().user_agent(USER_AGENT).build()?;
 
-        let resp = client.execute(request).await?;
+        let resp = client.get(url).send().await?;
         let status: StatusCode = resp.status();
         if status.as_u16() >= 400 {
             let resp_text = resp.text().await?;

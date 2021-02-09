@@ -4,13 +4,12 @@ use crate::{
 };
 use std::sync::{Arc, RwLock};
 
-
 pub trait Renderable {
+    fn new(verbose: bool, config: LeetcodeConfig, cache: Arc<RwLock<Cache>>) -> Self
+    where
+        Self: Sized;
     fn render_config(&self) -> Vec<WebsiteContest>;
     fn website_name(&self) -> String;
 
     fn render_live(&self) -> Vec<WebsiteContest>;
-    fn new(verbose: bool, config: LeetcodeConfig, cache: Arc<RwLock<Cache>>) -> Self
-    where
-        Self: Sized;
 }

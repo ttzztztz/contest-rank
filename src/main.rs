@@ -59,9 +59,6 @@ async fn main() {
         println!("[INFO] currently in live mode");
     }
 
-    let is_verbose = true;
-    let is_live = true;
-
     let config_path = matches.value_of("config").unwrap_or("./conf.json");
     let config = service::config::read_config(config_path);
 
@@ -77,7 +74,7 @@ async fn main() {
 
             let website_contests;
             if is_live {
-                live(&settings.config.live, website);
+                live(&settings.config.live, website).await;
             } else {
                 website_contests = website.render_config();
                 let render_object = convert_website_object(website_contests, is_live);

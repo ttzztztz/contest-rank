@@ -9,11 +9,10 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/target/debug/contest-rank",
-            "args": ["-v"],
+            "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],
-            "console": "externalTerminal",
             "MIMode": "lldb",
             "miDebuggerPath": "/usr/bin/lldb"
         }

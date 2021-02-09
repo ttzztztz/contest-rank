@@ -118,7 +118,7 @@ impl LeetcodeWeb {
 
         if *self.enable_cache.borrow() == true {
             let cloned_arc = self.cache.clone();
-            let read_lock = cloned_arc.try_read().unwrap();
+            let read_lock = cloned_arc.read().unwrap();
             if let Some(memo) = read_lock.get_cache::<LeetcodeRankRequest>(&url) {
                 if self.verbose {
                     println!("[INFO] cache hit request url={}", url);
@@ -130,7 +130,7 @@ impl LeetcodeWeb {
         let res = request::send_request::<LeetcodeRankRequest>(&url).await?;
         if *self.enable_cache.borrow() == true && res.is_past {
             let cloned_arc = self.cache.clone();
-            let mut write_lock = cloned_arc.try_write().unwrap();
+            let mut write_lock = cloned_arc.write().unwrap();
             if self.verbose {
                 println!("[INFO] cache set url={}", url);
             }
@@ -311,13 +311,13 @@ impl Renderable for LeetcodeWeb {
         };
     }
 
-    fn website_name(&self) -> String {
-        return String::from("leetcode");
-    }
-
     fn render_config(&self) -> Vec<WebsiteContest> {
         let config = &self.config;
         return executor::block_on(self.render(&config.contests, &config.users));
+    }
+
+    fn website_name(&self) -> String {
+        return String::from("leetcode");
     }
 
     fn render_live(&self) -> Vec<WebsiteContest> {

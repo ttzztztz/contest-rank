@@ -311,9 +311,9 @@ impl Renderable for LeetcodeWeb {
         };
     }
 
-    fn render_config(&self) -> Vec<WebsiteContest> {
+    fn render_config(&self, runtime: &tokio::runtime::Runtime) -> Vec<WebsiteContest> {
         let config = &self.config;
-        return executor::block_on(self.render(&config.contests, &config.users));
+        return runtime.block_on(self.render(&config.contests, &config.users));
     }
 
     fn website_name(&self) -> String {

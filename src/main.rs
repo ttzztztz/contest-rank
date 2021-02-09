@@ -37,11 +37,11 @@ fn handler_hashmap(
     handler_hashmap
 }
 
-#[tokio::main]
-async fn main() {
+fn main() {
     let yaml = load_yaml!("./cli.yaml");
     let matches = App::from_yaml(yaml).get_matches();
     let cache = Arc::new(RwLock::new(Cache::new()));
+    let runtime = tokio::runtime::Runtime::new().unwrap();
 
     let force_clear_cache = matches.occurrences_of("clear_cache") >= 1;
     if force_clear_cache {
@@ -74,9 +74,9 @@ async fn main() {
 
             let website_contests;
             if is_live {
-                live(&settings.config.live, website).await;
+                runtime.block_on(live(&settings.config.live, website));
             } else {
-                website_contests = website.render_config();
+                website_contests = website.render_config(&runtime);
                 let render_object = convert_website_object(website_contests, is_live);
                 render::render(render_object);
             }

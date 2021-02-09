@@ -9,8 +9,6 @@ pub async fn live(config: &LiveConfig, website: &Box<dyn Renderable>) {
         let render_object = convert_website_object(content, true);
         render::render(render_object);
 
-        tokio::time::sleep(std::time::Duration::from_secs(
-            config.interval,
-        )).await;
+        tokio::time::sleep(std::time::Duration::from_secs(config.interval)).await;
     }
 }

@@ -9,7 +9,8 @@ pub fn read_config(path: &str) -> config::Config {
 
             live_users: vec![],
             live_contests: vec![],
-
+            
+            concurrent: 1,
             cache: false,
             max_rank: 2000,
         },

@@ -72,8 +72,6 @@ pub struct LeetcodeWeb {
     pub runtime: Arc<tokio::runtime::Runtime>,
 }
 
-const MAX_CONCURRENT_PAGE: u32 = 4u32;
-
 impl LeetcodeWeb {
     async fn send_contest_info_request(
         &self,
@@ -157,7 +155,7 @@ impl LeetcodeWeb {
         let mut page = 1u32;
         while !searching_players.is_empty() && page * 25u32 < self.config.max_rank {
             let mut ranks = vec![];
-            for page_offset in 0u32..MAX_CONCURRENT_PAGE {
+            for page_offset in 0u32..self.config.concurrent {
                 if self.verbose {
                     println!(
                         "[INFO] ({}), current page={}",
@@ -172,7 +170,6 @@ impl LeetcodeWeb {
                 ))
             }
             let ranks = future::join_all(ranks).await;
-            // todo: excceed page limit check
 
             for rank_result in ranks.iter() {
                 if let Ok(rank) = rank_result {
@@ -231,7 +228,7 @@ impl LeetcodeWeb {
                 }
             }
 
-            page += MAX_CONCURRENT_PAGE;
+            page += self.config.concurrent;
         }
 
         return Ok(WebsiteContest {

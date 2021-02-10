@@ -1,18 +1,20 @@
-use crate::model::{
-    config::LeetcodeConfig,
-    render::{Submission, SubmissionStatus},
-    renderable::Renderable,
-    website::{WebsiteContest, WebsiteUser},
-};
-use crate::service::cache::Cache;
 use crate::utils::{finish_time, null, request};
+use crate::{
+    model::{
+        config::LeetcodeConfig,
+        render::{Submission, SubmissionStatus},
+        renderable::Renderable,
+        website::{WebsiteContest, WebsiteUser},
+    },
+    service::cache,
+};
 use chrono::{prelude, TimeZone};
 use futures::{executor, future};
 use serde::{Deserialize, Serialize};
 use std::{
     cell::RefCell,
     collections::{HashMap, HashSet},
-    sync::{Arc, RwLock},
+    sync::Arc,
 };
 
 #[derive(Serialize, Deserialize)]
@@ -65,9 +67,9 @@ struct LeetcodeContestInfoRequest {
 pub struct LeetcodeWeb {
     pub verbose: bool,
     pub config: LeetcodeConfig,
-    pub cache: Arc<RwLock<Cache>>,
 
     pub enable_cache: RefCell<bool>,
+    pub runtime: Arc<tokio::runtime::Runtime>,
 }
 
 const MAX_CONCURRENT_PAGE: u32 = 4u32;
@@ -109,6 +111,7 @@ impl LeetcodeWeb {
             contest_type_full = "biweekly";
         }
 
+        let cache_key = format!("lc_{}{}_{}", contest_type, contest_id, page);
         let url = format!(
             "https://leetcode.com/contest/api/ranking/{contest_type}-contest-{id}?pagination={page}&region=global",
             id = contest_id,
@@ -117,9 +120,7 @@ impl LeetcodeWeb {
         );
 
         if *self.enable_cache.borrow() == true {
-            let cloned_arc = self.cache.clone();
-            let read_lock = cloned_arc.read().unwrap();
-            if let Some(memo) = read_lock.get_cache::<LeetcodeRankRequest>(&url) {
+            if let Some(memo) = cache::get_cache::<LeetcodeRankRequest>(&cache_key).await {
                 if self.verbose {
                     println!("[INFO] cache hit request url={}", url);
                 }
@@ -129,12 +130,7 @@ impl LeetcodeWeb {
 
         let res = request::send_request::<LeetcodeRankRequest>(&url).await?;
         if *self.enable_cache.borrow() == true && res.is_past {
-            let cloned_arc = self.cache.clone();
-            let mut write_lock = cloned_arc.write().unwrap();
-            if self.verbose {
-                println!("[INFO] cache set url={}", url);
-            }
-            write_lock.set_cache(&url, &res);
+            cache::set_cache(&cache_key, &res).await;
         }
         return Ok(res);
     }
@@ -286,8 +282,8 @@ impl LeetcodeWeb {
                 Ok(user) => {
                     web_contests.push(user.clone());
                 }
-                Err(e) => {
-                    println!("[ERROR] when fetching contest {}", e);
+                Err(err) => {
+                    println!("[ERROR] when fetching contest {}", err);
                 }
             }
         }
@@ -301,19 +297,21 @@ impl LeetcodeWeb {
 }
 
 impl Renderable for LeetcodeWeb {
-    fn new(verbose: bool, config: LeetcodeConfig, cache: Arc<RwLock<Cache>>) -> Self {
+    fn new(verbose: bool, config: LeetcodeConfig, runtime: Arc<tokio::runtime::Runtime>) -> Self {
         return LeetcodeWeb {
             verbose,
             config,
-            cache,
+            runtime,
 
             enable_cache: RefCell::new(false),
         };
     }
 
-    fn render_config(&self, runtime: &tokio::runtime::Runtime) -> Vec<WebsiteContest> {
+    fn render_config(&self) -> Vec<WebsiteContest> {
         let config = &self.config;
-        return runtime.block_on(self.render(&config.contests, &config.users));
+        return self
+            .runtime
+            .block_on(self.render(&config.contests, &config.users));
     }
 
     fn website_name(&self) -> String {

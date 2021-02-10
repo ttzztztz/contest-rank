@@ -1,18 +1,10 @@
 #[macro_use]
 extern crate clap;
+use crate::model::{config::Settings, renderable::Renderable};
+use crate::service::{cache, converter::convert_website_object, live::live, render};
+use crate::web::leetcode::LeetcodeWeb;
 use clap::App;
-use model::{config::Settings, renderable::Renderable};
-use service::{
-    cache::{clear_cache, Cache},
-    converter::convert_website_object,
-    live::live,
-    render,
-};
-use std::{
-    collections::HashMap,
-    sync::{Arc, RwLock},
-};
-use web::leetcode::LeetcodeWeb;
+use std::{collections::HashMap, sync::Arc};
 
 mod model;
 mod service;
@@ -21,7 +13,7 @@ mod web;
 
 fn handler_hashmap(
     settings: &Settings,
-    cache: Arc<RwLock<Cache>>,
+    runtime: Arc<tokio::runtime::Runtime>,
 ) -> HashMap<String, Box<dyn Renderable>> {
     let mut handler_hashmap: HashMap<String, Box<dyn Renderable>> = HashMap::new();
     let verbose = settings.verbose;
@@ -29,7 +21,7 @@ fn handler_hashmap(
     let leetcode_web = Box::from(LeetcodeWeb::new(
         verbose,
         settings.config.leetcode.clone(),
-        cache,
+        runtime,
     ));
     handler_hashmap.insert(leetcode_web.website_name(), leetcode_web);
 
@@ -40,13 +32,12 @@ fn handler_hashmap(
 fn main() {
     let yaml = load_yaml!("./cli.yaml");
     let matches = App::from_yaml(yaml).get_matches();
-    let cache = Arc::new(RwLock::new(Cache::new()));
-    let runtime = tokio::runtime::Runtime::new().unwrap();
+    let runtime = Arc::new(tokio::runtime::Runtime::new().unwrap());
 
     let force_clear_cache = matches.occurrences_of("clear_cache") >= 1;
     if force_clear_cache {
-        clear_cache().unwrap();
-        println!("🌟 [Cache] Cache cleared!");
+        runtime.block_on(cache::force_clear_cache());
+        return;
     }
 
     let is_verbose = matches.occurrences_of("verbose") >= 1;
@@ -66,7 +57,7 @@ fn main() {
         config,
         verbose: is_verbose,
     };
-    let handlers = handler_hashmap(&settings, cache);
+    let handlers = handler_hashmap(&settings, runtime.clone());
 
     match handlers.get(&settings.config.website) {
         Some(website) => {
@@ -76,7 +67,7 @@ fn main() {
             if is_live {
                 runtime.block_on(live(&settings.config.live, website));
             } else {
-                website_contests = website.render_config(&runtime);
+                website_contests = website.render_config();
                 let render_object = convert_website_object(website_contests, is_live);
                 render::render(render_object);
             }

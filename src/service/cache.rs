@@ -1,140 +1,115 @@
-use io::Write;
 use serde::{de::DeserializeOwned, Serialize};
-use std::io;
-use std::{collections::HashMap, fs::File};
+use std::{io, path::Path};
+use tokio::{
+    fs,
+    io::{AsyncReadExt, AsyncWriteExt},
+};
 
-type CacheFileType = HashMap<String, String>;
-const CACHE_FILE_PATH: &str = "./cache.json";
+const CACHE_FILE_PATH: &str = "./cache";
 
-fn clear_cache_file() -> Result<File, io::Error> {
-    match File::create(CACHE_FILE_PATH) {
-        Ok(mut file) => {
-            match file.write("{}".as_bytes()) {
-                Ok(_) => {}
-                Err(e) => {
-                    println!("[WARN] Err when write initial data to file, e={}", e);
-                }
-            }
-            return Ok(file);
-        }
-        Err(err) => {
-            return Err(err);
-        }
-    }
+pub async fn clear_cache_file() -> Result<(), io::Error> {
+    return fs::remove_dir_all(CACHE_FILE_PATH).await;
 }
 
-fn clear_cache_file_suppress_error() {
-    if let Err(e) = clear_cache_file() {
+async fn read_cache_file(key: &str) -> Result<fs::File, io::Error> {
+    let path = format!("{}/{}.cache", CACHE_FILE_PATH, key);
+    return fs::File::open(path).await;
+}
+
+async fn write_cache_file(key: &str, data: &str) -> bool {
+    let path = format!("{}/{}.cache", CACHE_FILE_PATH, key);
+
+    let cache_path = Path::new(CACHE_FILE_PATH);
+    if !cache_path.exists() {
+        println!("[INFO] cache path doesn't exist, mkdir={}", CACHE_FILE_PATH);
+        if let Err(err) = fs::create_dir_all("./cache").await {
+            println!(
+                "[WARN] cache path doesn't exist, cannot make, path={}, e={}",
+                CACHE_FILE_PATH, err
+            );
+            return false;
+        }
+    }
+
+    if cache_path.is_file() {
         println!(
-            "[WARNING] Error when clear cache file, in suppress error function, e={}",
-            e
+            "[WARN] cache path is not dir, is a file, path={}",
+            CACHE_FILE_PATH
         );
+        return false;
     }
-}
 
-fn open_cache_file() -> Result<File, io::Error> {
-    match File::open(CACHE_FILE_PATH) {
-        Ok(file) => {
-            return Ok(file);
-        }
-        Err(e) => {
-            println!("[WARN] Error when opening cache file e={}", e);
-            clear_cache_file_suppress_error();
-            return Err(e);
-        }
-    }
-}
-
-fn read_cache_file() -> CacheFileType {
-    if let Ok(cache_file) = open_cache_file() {
-        match serde_json::from_reader::<File, CacheFileType>(cache_file) {
-            Ok(obj) => {
-                return obj as CacheFileType;
+    match fs::File::create(&path).await {
+        Ok(mut file) => match file.write_all(data.as_bytes()).await {
+            Ok(_) => {
+                return true;
             }
-            Err(e) => {
-                println!(
-                    "[WARN] Error when parsing cache file, cache file truncated e={}",
-                    e
-                );
-                return CacheFileType::new();
-            }
-        }
-    }
-    return CacheFileType::new();
-}
-
-fn write_cache_file(data: CacheFileType) {
-    match File::create(CACHE_FILE_PATH) {
-        Ok(file) => match serde_json::to_writer(file, &data) {
-            Ok(_) => {}
-            Err(e) => {
-                println!("[WARN] Error when parsing & writing cache file e={}", e);
+            Err(err) => {
+                println!("[ERROR] when writing cache file, path={}, e={}", path, err);
             }
         },
-        Err(e) => {
-            println!("[WARN] Error when writing cache file e={}", e);
+        Err(err) => {
+            println!(
+                "[ERROR] error when creating cache file, path={}, e={}",
+                path, err
+            );
+        }
+    }
+    return false;
+}
+
+pub async fn set_cache<T>(key: &str, value: &T)
+where
+    T: DeserializeOwned + Serialize,
+{
+    match serde_json::to_string(&value) {
+        Ok(value_json) => {
+            write_cache_file(key, &value_json).await;
+        }
+        Err(err) => {
+            println!("[WARN] Error when writing cache key={}, e={}", key, err);
         }
     }
 }
 
-pub fn clear_cache() -> Result<(), io::Error> {
-    match clear_cache_file() {
-        Ok(_) => {
-            return Ok(());
-        }
-        Err(e) => {
-            return Err(e);
-        }
-    }
-}
-pub struct Cache {
-    data: CacheFileType,
-}
-
-impl Cache {
-    pub fn new() -> Cache {
-        return Cache {
-            data: read_cache_file(),
-        };
-    }
-
-    pub fn set_cache<T>(&mut self, key: &str, value: &T)
-    where
-        T: DeserializeOwned + Serialize,
-    {
-        match serde_json::to_string(&value) {
-            Ok(value_json) => {
-                self.data.insert(key.to_string(), value_json);
-            }
-            Err(e) => {
-                println!("[WARN] Error when writing cache key={}, e={}", key, e);
-            }
-        }
-    }
-
-    pub fn get_cache<T>(&self, key: &str) -> Option<T>
-    where
-        T: DeserializeOwned + Serialize,
-    {
-        match self.data.get(key) {
-            None => {
+pub async fn get_cache<T>(key: &str) -> Option<T>
+where
+    T: DeserializeOwned + Serialize,
+{
+    match read_cache_file(key).await {
+        Ok(mut cache_file) => {
+            let mut buf: String = String::from("");
+            if let Err(err) = cache_file.read_to_string(&mut buf).await {
+                println!(
+                    "[ERROR] Error when async read cache from key={}, e={}",
+                    key, err
+                );
                 return None;
             }
-            Some(buf) => match serde_json::from_str(buf.as_str()) {
-                Err(e) => {
-                    println!("[WARN] Error when parsing cache key={}, e={}", key, e);
-                    return None;
-                }
+
+            match serde_json::from_str(&buf) {
                 Ok(val) => {
                     return Some(val);
                 }
-            },
+                Err(err) => {
+                    println!("[WARN] Error when parsing cache key={}, e={}", key, err);
+                    return None;
+                }
+            }
+        }
+        Err(_) => {
+            return None;
         }
     }
 }
 
-impl Drop for Cache {
-    fn drop(&mut self) {
-        write_cache_file(self.data.clone());
+pub async fn force_clear_cache() {
+    match clear_cache_file().await {
+        Ok(_) => {
+            println!("🌟 [Cache] Cache cleared!");
+        }
+        Err(err) => {
+            panic!("[ERROR] Error when clear cache dir e={}", err)
+        }
     }
 }

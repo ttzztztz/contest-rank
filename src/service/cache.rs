@@ -7,18 +7,23 @@ use tokio::{
 
 const CACHE_FILE_PATH: &str = "./cache";
 
+macro_rules! cache_path {
+    ($name: expr) => {
+        format!("{}/{}.cache", CACHE_FILE_PATH, $name);
+    };
+}
+
 pub async fn clear_cache_file() -> Result<(), io::Error> {
     return fs::remove_dir_all(CACHE_FILE_PATH).await;
 }
 
 async fn read_cache_file(key: &str) -> Result<fs::File, io::Error> {
-    let path = format!("{}/{}.cache", CACHE_FILE_PATH, key);
+    let path = cache_path!(key);
     return fs::File::open(path).await;
 }
 
 async fn write_cache_file(key: &str, data: &str) -> bool {
-    let path = format!("{}/{}.cache", CACHE_FILE_PATH, key);
-
+    let path = cache_path!(key);
     let cache_path = Path::new(CACHE_FILE_PATH);
     if !cache_path.exists() {
         println!("[INFO] cache path doesn't exist, mkdir={}", CACHE_FILE_PATH);
@@ -76,6 +81,7 @@ pub async fn get_cache<T>(key: &str) -> Option<T>
 where
     T: DeserializeOwned + Serialize,
 {
+    let path = cache_path!(key);
     match read_cache_file(key).await {
         Ok(mut cache_file) => {
             let mut buf: String = String::from("");
@@ -93,6 +99,12 @@ where
                 }
                 Err(err) => {
                     println!("[WARN] Error when parsing cache key={}, e={}", key, err);
+                    if let Err(err) = fs::remove_file(path).await {
+                        println!(
+                            "[WARN] Error when deleting cache file key={}, e={}",
+                            key, err
+                        );
+                    }
                     return None;
                 }
             }

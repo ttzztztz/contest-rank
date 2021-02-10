@@ -11,6 +11,12 @@ mod service;
 mod utils;
 mod web;
 
+macro_rules! add_website_to_hashmap {
+    ($handler_hashmap: expr, $($name: expr),*) => {
+        $($handler_hashmap.insert($name.website_name(), $name);)*
+    };
+}
+
 fn handler_hashmap(
     settings: &Settings,
     runtime: Arc<tokio::runtime::Runtime>,
@@ -23,7 +29,7 @@ fn handler_hashmap(
         settings.config.leetcode.clone(),
         runtime,
     ));
-    handler_hashmap.insert(leetcode_web.website_name(), leetcode_web);
+    add_website_to_hashmap!(handler_hashmap, leetcode_web);
 
     // We can support more website in the future!
     handler_hashmap

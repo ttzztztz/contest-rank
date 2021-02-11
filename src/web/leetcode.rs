@@ -293,10 +293,6 @@ impl LeetcodeWeb {
         return web_contests;
     }
 
-    async fn render(&self, contests: &Vec<String>, users: &Vec<String>) -> Vec<WebsiteContest> {
-        return self.__render(contests, users).await;
-    }
-
     fn render_live(&self) -> Vec<WebsiteContest> {
         let contests = &self.config.live_contests;
         let users = &self.config.live_users;
@@ -308,7 +304,7 @@ impl LeetcodeWeb {
         let config = &self.config;
         return self
             .runtime
-            .block_on(self.render(&config.contests, &config.users));
+            .block_on(self.__render(&config.contests, &config.users));
     }
 }
 
@@ -325,13 +321,13 @@ impl Renderable for LeetcodeWeb {
             runtime,
 
             enable_cache: false,
-            is_live: is_live,
+            is_live,
         };
 
         if is_live {
-            instance.is_live = false;
+            instance.enable_cache = false;
         } else {
-            instance.is_live = instance.config.cache;
+            instance.enable_cache = instance.config.cache;
         }
 
         return Box::new(instance);

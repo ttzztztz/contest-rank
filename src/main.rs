@@ -73,7 +73,7 @@ fn main() {
             if is_live {
                 let website =
                     (handler.new)(is_verbose, settings.config.clone(), runtime.clone(), true);
-                runtime.block_on(live(&settings.config.live, &website, hide_submission));
+                live(&settings.config.live, &website, hide_submission);
             } else {
                 let website =
                     (handler.new)(is_verbose, settings.config.clone(), runtime.clone(), false);

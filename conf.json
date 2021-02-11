@@ -11,7 +11,7 @@
     "cache": true
   },
   "live": {
-    "interval": 300,
+    "interval": 10,
     "last": 5400
   }
 }

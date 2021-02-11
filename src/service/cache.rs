@@ -118,7 +118,7 @@ where
 pub async fn force_clear_cache() {
     match clear_cache_file().await {
         Ok(_) => {
-            println!("🌟 [Cache] Cache cleared!");
+            println!("[INFO] 🌟 Cache cleared!");
         }
         Err(err) => {
             panic!("[ERROR] Error when clear cache dir e={}", err)

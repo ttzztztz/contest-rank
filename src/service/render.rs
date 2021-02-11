@@ -1,6 +1,5 @@
+use crate::{model::render, utils::finish_time};
 use chrono::prelude;
-
-use crate::model::render;
 
 fn render_medal(local_rank: u32) -> &'static str {
     if local_rank == 1 {
@@ -48,7 +47,7 @@ fn render_ak(player: &render::User) -> &'static str {
     }
 }
 
-pub fn render(object: render::RenderObject) {
+pub fn render(object: render::RenderObject, hide_submission: bool) {
     // render for each contest
     if object.is_live {
         println!(
@@ -67,27 +66,32 @@ pub fn render(object: render::RenderObject) {
                 "  {} {:<24} 🍺{:<12} 📊{:<4} ✨{:<6} {}",
                 render_medal(player.local_rank),
                 player.username,
-                player.finish_time,
+                finish_time::seconds_to_finish_time(player.finish_time),
                 player.global_rank,
                 player.score,
                 render_ak(player)
             );
 
-            for tid in 0..player.submissions.len() {
-                let submission = &player.submissions[tid];
+            if !hide_submission {
+                for tid in 0..player.submissions.len() {
+                    let submission = &player.submissions[tid];
 
-                match submission.status {
-                    render::SubmissionStatus::Accepted => {
-                        println!(
-                            "    ✅{:<6} ✨{:<14} ⏰{:<12} {}",
-                            submission.title,
-                            submission.score,
-                            submission.finish_time,
-                            render_fail_count(submission.fail_count)
-                        );
-                    }
-                    render::SubmissionStatus::Unaccepted => {
-                        println!("    ❌{:<6} ✨{:<14}", submission.title, submission.score);
+                    match submission.status {
+                        render::SubmissionStatus::Accepted => {
+                            println!(
+                                "    ✅{:<6} ✨{:<14} ⏰{:<12} {}",
+                                submission.title,
+                                submission.score,
+                                finish_time::seconds_to_finish_time(submission.finish_time),
+                                render_fail_count(submission.fail_count)
+                            );
+                        }
+                        render::SubmissionStatus::Unaccepted => {
+                            println!("    ❌{:<6} ✨{:<14}", submission.title, submission.score);
+                        }
+                        render::SubmissionStatus::Pending => {
+                            println!("    ⏳{:<6} ✨{:<14}", submission.title, submission.score);
+                        }
                     }
                 }
             }
@@ -95,16 +99,17 @@ pub fn render(object: render::RenderObject) {
         println!("");
     }
 
-    if !object.is_live {
+    if !object.is_live && !object.aggregate.is_empty() {
         println!("🍎 Overall Data");
         // render aggregate data
         for aggregate in object.aggregate.iter() {
             println!(
-                "  👴 {:<24} ✨{:<6} 🏅️{:<3} ⚡️{:<3}",
+                "  👴 {:<24} ✨{:<6} 🏅️{:<3} ⚡️{:<4} ⏰{}",
                 aggregate.username,
                 aggregate.total_score,
                 aggregate.win_count,
-                aggregate.attend_count
+                aggregate.attend_count,
+                finish_time::seconds_to_finish_time(aggregate.total_time)
             );
         }
     }

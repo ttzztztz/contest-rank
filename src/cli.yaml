@@ -20,3 +20,79 @@ args:
       short: l
       long: live
       help: Live watch a contest
+  - show_config:
+      long: show-config
+      help: Show current config in JSON format
+  - hide_submission:
+      short: q
+      long: hide-submission
+      help: Hide submission info in output
+subcommands:
+  - leetcode:
+      name: LeetCode Plugin for Contest Rank
+      about: Config for LeetCode website.
+      subcommands:
+        - set:
+            about: Set default website to LeetCode
+        - user:
+            about: Configs for user
+            subcommands:
+              - add:
+                  about: Add a user into watch list
+                  args:
+                    - username:
+                        required: true
+                        takes_value: true
+                        value_name: USERNAME
+                    - live:
+                        short: l
+                        long: live
+                        help: Operate on the live mode
+              - truncate:
+                  about: Delete all users into watch list
+                  args:
+                    - live:
+                        short: l
+                        long: live
+                        help: Operate on the live mode
+              - delete:
+                  about: Delete a user from watch list
+                  args:
+                    - username:
+                        takes_value: true
+                        value_name: USERNAME
+                    - live:
+                        short: l
+                        long: live
+                        help: Operate on the live mode
+        - contest:
+            about: Configs for contest
+            subcommands:
+              - add:
+                  about: Add a contest into watch list
+                  args:
+                    - contest_id:
+                        required: true
+                        takes_value: true
+                        value_name: CONTEST_ID
+                    - live:
+                        short: l
+                        long: live
+                        help: Operate on the live mode
+              - truncate:
+                  about: Delete all contests into watch list
+                  args:
+                    - live:
+                        short: l
+                        long: live
+                        help: Operate on the live mode
+              - delete:
+                  about: Delete a contest from watch list
+                  args:
+                    - contest_id:
+                        takes_value: true
+                        value_name: CONTEST_ID
+                    - live:
+                        short: l
+                        long: live
+                        help: Operate on the live mode

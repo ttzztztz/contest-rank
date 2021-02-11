@@ -1,85 +1,92 @@
 #[macro_use]
 extern crate clap;
-use crate::model::{config::Settings, renderable::Renderable};
 use crate::service::{cache, converter::convert_website_object, live::live, render};
-use crate::web::leetcode::LeetcodeWeb;
 use clap::App;
-use std::{collections::HashMap, sync::Arc};
+use service::handler;
+use std::sync::Arc;
 
 mod model;
 mod service;
 mod utils;
 mod web;
 
-macro_rules! add_website_to_hashmap {
-    ($handler_hashmap: expr, $($name: expr),*) => {
-        $($handler_hashmap.insert($name.website_name(), $name);)*
-    };
-}
-
-fn handler_hashmap(
-    settings: &Settings,
-    runtime: Arc<tokio::runtime::Runtime>,
-) -> HashMap<String, Box<dyn Renderable>> {
-    let mut handler_hashmap: HashMap<String, Box<dyn Renderable>> = HashMap::new();
-    let verbose = settings.verbose;
-
-    let leetcode_web = Box::from(LeetcodeWeb::new(
-        verbose,
-        settings.config.leetcode.clone(),
-        runtime,
-    ));
-    add_website_to_hashmap!(handler_hashmap, leetcode_web);
-
-    // We can support more website in the future!
-    handler_hashmap
-}
-
 fn main() {
     let yaml = load_yaml!("./cli.yaml");
     let matches = App::from_yaml(yaml).get_matches();
     let runtime = Arc::new(tokio::runtime::Runtime::new().unwrap());
 
-    let force_clear_cache = matches.occurrences_of("clear_cache") >= 1;
-    if force_clear_cache {
+    if matches.is_present("clear_cache") {
         runtime.block_on(cache::force_clear_cache());
         return;
     }
 
-    let is_verbose = matches.occurrences_of("verbose") >= 1;
+    let is_verbose = matches.is_present("verbose");
     if is_verbose {
-        println!("[INFO] currently in verbose mode");
-    }
-
-    let is_live = matches.occurrences_of("live") >= 1;
-    if is_verbose && is_live {
-        println!("[INFO] currently in live mode");
+        println!("[INFO] Currently in verbose mode");
     }
 
     let config_path = matches.value_of("config").unwrap_or("./conf.json");
     let config = service::config::read_config(config_path);
 
+    if matches.is_present("show_config") {
+        println!("🔧 Config loaded from json :");
+        println!("{}", config.to_json());
+        return;
+    }
+
     let settings = model::config::Settings {
         config,
         verbose: is_verbose,
     };
-    let handlers = handler_hashmap(&settings, runtime.clone());
+    let handlers = handler::handler_hashmap();
+
+    for (website_name, handler) in handlers.iter() {
+        if let Some(website_matches) = matches.subcommand_matches(website_name) {
+            let mut settings = settings;
+
+            if (handler.subcommand_match)(website_matches, &mut settings)
+                && settings.config.write_to_file(config_path)
+            {
+                println!("[INFO] 🌟 Config written to path={}", config_path);
+            } else {
+                println!("[INFO] 😱 Config file unchanged, path={}", config_path);
+            }
+
+            return;
+        }
+    }
+
+    let is_live = matches.is_present("live");
+    if is_verbose && is_live {
+        println!("[INFO] Currently in live mode");
+    }
+    let hide_submission = matches.is_present("hide_submission");
+    if is_verbose && hide_submission {
+        println!("[INFO] Submission info is hidden in output");
+    }
 
     match handlers.get(&settings.config.website) {
-        Some(website) => {
-            println!("[INFO] We are prparing data, please wait...");
+        Some(handler) => {
+            println!("[INFO] Prparing data, please wait...");
 
             let website_contests;
             if is_live {
-                runtime.block_on(live(&settings.config.live, website));
+                let website =
+                    (handler.new)(is_verbose, settings.config.clone(), runtime.clone(), true);
+                runtime.block_on(live(&settings.config.live, &website, hide_submission));
             } else {
-                website_contests = website.render_config();
+                let website =
+                    (handler.new)(is_verbose, settings.config.clone(), runtime.clone(), false);
+                website_contests = website.render();
                 let render_object = convert_website_object(website_contests, is_live);
-                render::render(render_object);
+                render::render(render_object, hide_submission);
             }
         }
         None => {
-            println!("No match handler for website {}", settings.config.website);
+            println!(
+                "[INFO] No match handler for website={}",
+                settings.config.website
+            );
         }
     }
 }

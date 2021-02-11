@@ -3,12 +3,13 @@
 pub enum SubmissionStatus {
     Accepted,
     Unaccepted,
+    Pending
 }
 
 #[derive(Clone)]
 pub struct Submission {
     pub fail_count: u32,
-    pub finish_time: String,
+    pub finish_time: i64,
     pub status: SubmissionStatus,
     pub score: u32,
     pub title: String,
@@ -17,7 +18,7 @@ pub struct Submission {
 pub struct User {
     pub username: String,
     pub country: String,
-    pub finish_time: String,
+    pub finish_time: i64,
     pub global_rank: u32,
     pub score: u32,
     pub local_rank: u32,
@@ -32,6 +33,7 @@ pub struct UserAggregate {
     pub win_count: u32,
     pub attend_count: u32,
     pub total_score: u32,
+    pub total_time: i64,
 }
 
 #[derive(Clone)]

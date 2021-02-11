@@ -1,18 +1,18 @@
-use crate::utils::{finish_time, null, request};
 use crate::{
     model::{
-        config::LeetcodeConfig,
+        config::{Config, Settings, WebsiteConfig},
         render::{Submission, SubmissionStatus},
-        renderable::Renderable,
+        renderable::{Renderable, WebsiteTrait},
         website::{WebsiteContest, WebsiteUser},
     },
     service::cache,
+    utils::{null, request},
 };
 use chrono::{prelude, TimeZone};
-use futures::{executor, future};
+use clap::ArgMatches;
+use futures::future;
 use serde::{Deserialize, Serialize};
 use std::{
-    cell::RefCell,
     collections::{HashMap, HashSet},
     sync::Arc,
 };
@@ -66,9 +66,10 @@ struct LeetcodeContestInfoRequest {
 
 pub struct LeetcodeWeb {
     pub verbose: bool,
-    pub config: LeetcodeConfig,
+    pub config: WebsiteConfig,
 
-    pub enable_cache: RefCell<bool>,
+    pub enable_cache: bool,
+    pub is_live: bool,
     pub runtime: Arc<tokio::runtime::Runtime>,
 }
 
@@ -117,7 +118,7 @@ impl LeetcodeWeb {
             page = page
         );
 
-        if *self.enable_cache.borrow() == true {
+        if self.enable_cache {
             if let Some(memo) = cache::get_cache::<LeetcodeRankRequest>(&cache_key).await {
                 if self.verbose {
                     println!("[INFO] cache hit request url={}", url);
@@ -127,7 +128,7 @@ impl LeetcodeWeb {
         }
 
         let res = request::send_request::<LeetcodeRankRequest>(&url).await?;
-        if *self.enable_cache.borrow() == true && res.is_past {
+        if self.enable_cache && res.is_past {
             cache::set_cache(&cache_key, &res).await;
         }
         return Ok(res);
@@ -194,10 +195,17 @@ impl LeetcodeWeb {
 
                             match submission_hashmap.get(&question_id_str) {
                                 None => {
+                                    let submission_status;
+                                    if self.is_live {
+                                        submission_status = SubmissionStatus::Pending;
+                                    } else {
+                                        submission_status = SubmissionStatus::Unaccepted;
+                                    }
+
                                     submissions_vec.push(Submission {
                                         fail_count: 0,
-                                        finish_time: String::from(""),
-                                        status: SubmissionStatus::Unaccepted,
+                                        finish_time: 0,
+                                        status: submission_status,
                                         score: 0,
                                         title: format!("T{}", question_index + 1),
                                     });
@@ -205,9 +213,7 @@ impl LeetcodeWeb {
                                 Some(submission) => {
                                     submissions_vec.push(Submission {
                                         fail_count: submission.fail_count,
-                                        finish_time: finish_time::seconds_to_finish_time(
-                                            submission.date - contest_info.start_time,
-                                        ),
+                                        finish_time: submission.date - contest_info.start_time,
                                         status: SubmissionStatus::Accepted,
                                         score: question.credit,
                                         title: format!("T{}", question_index + 1),
@@ -288,38 +294,182 @@ impl LeetcodeWeb {
     }
 
     async fn render(&self, contests: &Vec<String>, users: &Vec<String>) -> Vec<WebsiteContest> {
-        *self.enable_cache.borrow_mut() = self.config.cache;
         return self.__render(contests, users).await;
     }
-}
 
-impl Renderable for LeetcodeWeb {
-    fn new(verbose: bool, config: LeetcodeConfig, runtime: Arc<tokio::runtime::Runtime>) -> Self {
-        return LeetcodeWeb {
-            verbose,
-            config,
-            runtime,
+    fn render_live(&self) -> Vec<WebsiteContest> {
+        let contests = &self.config.live_contests;
+        let users = &self.config.live_users;
 
-            enable_cache: RefCell::new(false),
-        };
+        return self.runtime.block_on(self.__render(contests, users));
     }
 
-    fn render_config(&self) -> Vec<WebsiteContest> {
+    fn render_contest(&self) -> Vec<WebsiteContest> {
         let config = &self.config;
         return self
             .runtime
             .block_on(self.render(&config.contests, &config.users));
     }
+}
 
-    fn website_name(&self) -> String {
-        return String::from("leetcode");
+impl Renderable for LeetcodeWeb {
+    fn new(
+        verbose: bool,
+        config: Config,
+        runtime: Arc<tokio::runtime::Runtime>,
+        is_live: bool,
+    ) -> Box<dyn Renderable> {
+        let mut instance = LeetcodeWeb {
+            verbose,
+            config: config.leetcode,
+            runtime,
+
+            enable_cache: false,
+            is_live: is_live,
+        };
+
+        if is_live {
+            instance.is_live = false;
+        } else {
+            instance.is_live = instance.config.cache;
+        }
+
+        return Box::new(instance);
     }
 
-    fn render_live(&self) -> Vec<WebsiteContest> {
-        *self.enable_cache.borrow_mut() = false;
-        let contests = &self.config.live_contests;
-        let users = &self.config.live_users;
+    fn render(&self) -> Vec<WebsiteContest> {
+        if self.is_live {
+            return self.render_live();
+        } else {
+            return self.render_contest();
+        }
+    }
+}
 
-        return executor::block_on(self.__render(contests, users));
+impl WebsiteTrait for LeetcodeWeb {
+    fn website_name() -> &'static str {
+        return "leetcode";
+    }
+
+    fn subcommand_match(website_matches: &ArgMatches, settings: &mut Settings) -> bool {
+        match website_matches.subcommand() {
+            ("user", Some(arg_matches)) => match arg_matches.subcommand() {
+                ("add", Some(arg_matches)) => {
+                    let username = arg_matches.value_of("username").unwrap();
+
+                    let vec;
+                    if arg_matches.is_present("live") {
+                        vec = &mut settings.config.leetcode.live_users;
+                    } else {
+                        vec = &mut settings.config.leetcode.users;
+                    }
+
+                    vec.push(username.to_string());
+                    println!("[INFO] 🔧 Added user {} to LeetCode config", username);
+                    return true;
+                }
+                ("truncate", Some(arg_matches)) => {
+                    let vec;
+                    if arg_matches.is_present("live") {
+                        vec = &mut settings.config.leetcode.live_users;
+                    } else {
+                        vec = &mut settings.config.leetcode.users;
+                    }
+
+                    vec.clear();
+                    println!("[INFO] 🔧 Cleared all users in LeetCode config");
+                    return true;
+                }
+                ("delete", Some(arg_matches)) => {
+                    let username = arg_matches.value_of("username").unwrap();
+
+                    let vec;
+                    if arg_matches.is_present("live") {
+                        vec = &mut settings.config.leetcode.live_users;
+                    } else {
+                        vec = &mut settings.config.leetcode.users;
+                    }
+
+                    match vec.iter().position(move |val| val == username) {
+                        Some(idx) => {
+                            vec.remove(idx);
+                            println!("[INFO] 🔧 Remove user {} to LeetCode config", username);
+                            return true;
+                        }
+                        None => {
+                            println!("[INFO] ❌ Username {} doesn't exist", username);
+                            return false;
+                        }
+                    }
+                }
+                _ => {}
+            },
+            ("contest", Some(arg_matches)) => match arg_matches.subcommand() {
+                ("add", Some(arg_matches)) => {
+                    let contest_id = arg_matches.value_of("contest_id").unwrap();
+
+                    let vec;
+                    if arg_matches.is_present("live") {
+                        vec = &mut settings.config.leetcode.live_contests;
+                    } else {
+                        vec = &mut settings.config.leetcode.contests;
+                    }
+
+                    vec.push(contest_id.to_string());
+                    println!(
+                        "[INFO] 🔧 Added contest_id {} to LeetCode config",
+                        contest_id
+                    );
+                    return true;
+                }
+                ("truncate", Some(arg_matches)) => {
+                    let vec;
+
+                    if arg_matches.is_present("live") {
+                        vec = &mut settings.config.leetcode.live_contests;
+                    } else {
+                        vec = &mut settings.config.leetcode.contests;
+                    }
+
+                    vec.clear();
+                    println!("[INFO] 🔧 Cleared all contest_ids in LeetCode config");
+                    return true;
+                }
+                ("delete", Some(arg_matches)) => {
+                    let contest_id = arg_matches.value_of("contest_id").unwrap();
+
+                    let vec;
+                    if arg_matches.is_present("live") {
+                        vec = &mut settings.config.leetcode.live_contests;
+                    } else {
+                        vec = &mut settings.config.leetcode.contests;
+                    }
+
+                    match vec.iter().position(move |val| val == contest_id) {
+                        Some(idx) => {
+                            vec.remove(idx);
+                            println!(
+                                "[INFO] 🔧 Added contest_id {} to LeetCode config",
+                                contest_id
+                            );
+                            return true;
+                        }
+                        None => {
+                            println!("[INFO] ❌ Contest {} doesn't exist", contest_id);
+                            return false;
+                        }
+                    }
+                }
+                _ => {}
+            },
+            ("set", _) => {
+                settings.config.website = String::from("leetcode");
+                println!("[INFO] 🔧 Set website to LeetCode",);
+                return true;
+            }
+            _ => {}
+        }
+
+        return false;
     }
 }

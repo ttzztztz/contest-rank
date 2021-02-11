@@ -1,9 +1,6 @@
-use crate::{
-    model::{
-        render::{Contest, RenderObject, User, UserAggregate},
-        website::WebsiteContest,
-    },
-    utils::finish_time,
+use crate::model::{
+    render::{Contest, RenderObject, User, UserAggregate},
+    website::WebsiteContest,
 };
 use std::collections::HashMap;
 
@@ -22,7 +19,7 @@ pub fn convert_website_object(
             players.push(User {
                 username: player.username.clone(),
                 country: player.country.clone(),
-                finish_time: finish_time::seconds_to_finish_time(player.finish_time),
+                finish_time: player.finish_time,
                 global_rank: player.global_rank,
                 score: player.score,
                 submissions: player.submissions.to_vec(),
@@ -37,6 +34,7 @@ pub fn convert_website_object(
                         win_count: 0,
                         attend_count: 1,
                         total_score: player.score,
+                        total_time: player.finish_time,
                     };
 
                     aggregate.push(aggregate_obj);
@@ -46,6 +44,7 @@ pub fn convert_website_object(
                     let mut user = &mut (aggregate[*uid]);
                     user.total_score = user.total_score + player.score;
                     user.attend_count += 1;
+                    user.total_time += player.finish_time;
                 }
             }
         }

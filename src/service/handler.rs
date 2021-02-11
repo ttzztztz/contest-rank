@@ -1,6 +1,6 @@
 use crate::{
     model::{
-        config::{Config, Settings},
+        config,
         renderable::{Renderable, WebsiteTrait},
     },
     web::leetcode::LeetcodeWeb,
@@ -8,8 +8,9 @@ use crate::{
 use std::{collections::HashMap, sync::Arc};
 
 pub struct HandlerHashMapValue {
-    pub new: Box<fn(bool, Config, Arc<tokio::runtime::Runtime>, bool) -> Box<dyn Renderable>>,
-    pub subcommand_match: Box<fn(&clap::ArgMatches, &mut Settings) -> bool>,
+    pub new:
+        Box<fn(bool, config::Config, Arc<tokio::runtime::Runtime>, bool) -> Box<dyn Renderable>>,
+    pub subcommand_match: Box<fn(&clap::ArgMatches, &mut config::Settings) -> bool>,
 }
 
 type HandlerHashMapType = HashMap<String, HandlerHashMapValue>;

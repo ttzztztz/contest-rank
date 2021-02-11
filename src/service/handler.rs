@@ -8,9 +8,8 @@ use crate::{
 use std::{collections::HashMap, sync::Arc};
 
 pub struct HandlerHashMapValue {
-    pub new:
-        Box<fn(bool, config::Config, Arc<tokio::runtime::Runtime>, bool) -> Box<dyn Renderable>>,
-    pub subcommand_match: Box<fn(&clap::ArgMatches, &mut config::Settings) -> bool>,
+    pub new: fn(bool, config::Config, Arc<tokio::runtime::Runtime>, bool) -> Box<dyn Renderable>,
+    pub subcommand_match: fn(&clap::ArgMatches, &mut config::Settings) -> bool,
 }
 
 type HandlerHashMapType = HashMap<String, HandlerHashMapValue>;
@@ -18,8 +17,8 @@ type HandlerHashMapType = HashMap<String, HandlerHashMapValue>;
 macro_rules! add_website_to_hashmap {
     ($handler_hashmap: expr, $($name: tt),*) => {
         $($handler_hashmap.insert($name::website_name().to_string(), HandlerHashMapValue {
-            new: Box::new($name::new),
-            subcommand_match: Box::new($name::subcommand_match),
+            new: $name::new,
+            subcommand_match: $name::subcommand_match,
         });)*
     };
 }

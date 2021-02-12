@@ -1,5 +1,5 @@
 name: Contest Rank
-version: "1.0.0"
+version: "1.02"
 author: Rabbit <ttzztztz@outlook.com>
 about: Analysis contest info
 args:
@@ -23,6 +23,9 @@ args:
   - show_config:
       long: show-config
       help: Show current config in JSON format
+  - show_config_path:
+      long: show-config-path
+      help: Show current config absolute path
   - hide_submission:
       short: q
       long: hide-submission

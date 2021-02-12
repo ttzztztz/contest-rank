@@ -15,9 +15,9 @@ fn render_medal(local_rank: u32) -> &'static str {
 
 fn render_fail_count(fail_count: u32) -> String {
     if fail_count == 0 {
-        return String::from("🌟 BUG FREE");
+        return String::from("🌟BUG FREE");
     } else {
-        return format!("🐛 {}", fail_count);
+        return format!("🐛{}", fail_count);
     }
 }
 
@@ -51,7 +51,7 @@ pub fn render(object: render::RenderObject, hide_submission: bool) {
     // render for each contest
     if object.is_live {
         println!(
-            "🎦 [Live] Updated {}",
+            "🎦[Live] Updated {}",
             prelude::Local::now()
                 .format_localized("%Y-%m-%d %a %H:%M:%S", prelude::Locale::ja_JP)
                 .to_string()
@@ -59,11 +59,11 @@ pub fn render(object: render::RenderObject, hide_submission: bool) {
     }
 
     for contest in object.data.iter() {
-        println!("🏆 {:<48} {}", contest.name, contest.date);
+        println!("🏆{:<42}{}", contest.name, contest.date);
 
         for player in contest.players.iter() {
             println!(
-                "  {} {:<24} 🍺{:<12} 📊{:<4} ✨{:<6} {}",
+                "  {}{:<24} 🍺{:<12} 📊{:<4} ✨{:<6} {}",
                 render_medal(player.local_rank),
                 player.username,
                 finish_time::seconds_to_finish_time(player.finish_time),
@@ -79,7 +79,7 @@ pub fn render(object: render::RenderObject, hide_submission: bool) {
                     match submission.status {
                         render::SubmissionStatus::Accepted => {
                             println!(
-                                "    ✅{:<6} ✨{:<14} ⏰{:<12} {}",
+                                "    ✅{:<6} ✨{:<13} ⏰{:<12} {}",
                                 submission.title,
                                 submission.score,
                                 finish_time::seconds_to_finish_time(submission.finish_time),
@@ -99,12 +99,12 @@ pub fn render(object: render::RenderObject, hide_submission: bool) {
         println!("");
     }
 
-    if !object.is_live && !object.aggregate.is_empty() {
+    if !object.is_live && object.data.len() >= 2 && !object.aggregate.is_empty() {
         println!("🍎 Overall Data");
         // render aggregate data
         for aggregate in object.aggregate.iter() {
             println!(
-                "  👴 {:<24} ✨{:<6} 🏅️{:<3} ⚡️{:<4} ⏰{}",
+                "  👴{:<24} ✨{:<6} 🏅️{:<3} ⚡️{:<4} ⏰{}",
                 aggregate.username,
                 aggregate.total_score,
                 aggregate.win_count,

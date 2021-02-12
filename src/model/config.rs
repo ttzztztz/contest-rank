@@ -57,6 +57,7 @@ pub struct WebsiteConfig {
 
     pub live_contests: Vec<String>,
     pub live_users: Vec<String>,
+
     pub max_rank: u32,
     pub concurrent: u32,
     pub cache: bool,

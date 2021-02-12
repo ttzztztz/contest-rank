@@ -14,4 +14,6 @@ pub fn live(config: &LiveConfig, website: &Box<dyn Renderable>, hide_submission:
 
         thread::sleep(std::time::Duration::from_secs(config.interval));
     }
+
+    println!("[INFO] Live ended");
 }

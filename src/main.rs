@@ -3,7 +3,7 @@ extern crate clap;
 use crate::service::{cache, converter::convert_website_object, live::live, render};
 use clap::App;
 use service::handler;
-use std::sync::Arc;
+use std::{path::Path, sync::Arc};
 
 mod model;
 mod service;
@@ -31,6 +31,12 @@ fn main() {
     if matches.is_present("show_config") {
         println!("🔧 Config loaded from json :");
         println!("{}", config.to_json());
+        return;
+    }
+
+    if matches.is_present("show_config_path") {
+        let path = Path::new(config_path);
+        println!("{}", path.canonicalize().unwrap().display());
         return;
     }
 

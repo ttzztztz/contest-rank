@@ -39,7 +39,7 @@ pub struct UserAggregate {
 #[derive(Clone)]
 pub struct Contest<T = User> {
     pub name: String,
-    pub date: String,
+    pub date: i64,
 
     pub players: Vec<T>,
 }

@@ -1,5 +1,5 @@
 use crate::{model::render, utils::finish_time};
-use chrono::prelude;
+use chrono::{prelude, TimeZone};
 
 fn render_medal(local_rank: u32) -> &'static str {
     if local_rank == 1 {
@@ -47,19 +47,24 @@ fn render_ak(player: &render::User) -> &'static str {
     }
 }
 
+pub fn render_date(date: chrono::DateTime<chrono::Local>) -> String {
+    return date
+        .format_localized("%Y-%m-%d %a %H:%M:%S", prelude::Locale::ja_JP)
+        .to_string();
+}
+
 pub fn render(object: render::RenderObject, hide_submission: bool) {
     // render for each contest
     if object.is_live {
-        println!(
-            "🎦[Live] Updated {}",
-            prelude::Local::now()
-                .format_localized("%Y-%m-%d %a %H:%M:%S", prelude::Locale::ja_JP)
-                .to_string()
-        );
+        println!("🎦[Live] Updated {}", render_date(prelude::Local::now()));
     }
 
     for contest in object.data.iter() {
-        println!("🏆{:<42}{}", contest.name, contest.date);
+        println!(
+            "🏆{:<42}{}",
+            contest.name,
+            render_date(prelude::Local.timestamp(contest.date, 0))
+        );
 
         for player in contest.players.iter() {
             println!(

@@ -8,7 +8,6 @@ use crate::{
     service::cache,
     utils::{null, request},
 };
-use chrono::{prelude, TimeZone};
 use clap::ArgMatches;
 use futures::future;
 use serde::{Deserialize, Serialize};
@@ -35,6 +34,7 @@ struct RankItem {
     score: u32,
     username: String,
 }
+
 #[derive(Serialize, Deserialize)]
 struct LeetcodeRankRequest {
     submissions: Vec<HashMap<String, SubmissionItem>>,
@@ -239,10 +239,7 @@ impl LeetcodeWeb {
 
         return Ok(WebsiteContest {
             name: String::from("LeetCode ") + &contest_info.title,
-            date: prelude::Local
-                .timestamp(contest_info.start_time, 0)
-                .format_localized("%Y-%m-%d %a %H:%M", prelude::Locale::ja_JP)
-                .to_string(),
+            date: contest_info.start_time,
             players: website_players,
         });
     }

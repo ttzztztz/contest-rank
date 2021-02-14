@@ -17,7 +17,7 @@ where
         if status.as_u16() >= 400 {
             let resp_text = resp.text().await?;
             println!(
-                "[ERROR] request retry#{}, url={}, status_code={}, {}",
+                "[ERROR] Request retry#{}, url={}, status_code={}, {}",
                 retry_idx, url, status, resp_text
             );
         } else {

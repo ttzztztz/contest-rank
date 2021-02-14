@@ -121,7 +121,7 @@ impl LeetcodeWeb {
         if self.enable_cache {
             if let Some(memo) = cache::get_cache::<LeetcodeRankRequest>(&cache_key).await {
                 if self.verbose {
-                    println!("[INFO] cache hit request url={}", url);
+                    println!("[INFO] Cache hit request url={}", url);
                 }
                 return Ok(memo);
             }
@@ -154,7 +154,7 @@ impl LeetcodeWeb {
 
         let mut website_players = Vec::<WebsiteUser>::new();
         let mut page = 1u32;
-        while !searching_players.is_empty() && page * 25u32 < self.config.max_rank {
+        while !searching_players.is_empty() && (page - 1u32) * 25u32 < self.config.max_rank {
             let mut ranks = vec![];
             for page_offset in 0u32..self.config.concurrent {
                 if self.verbose {
@@ -172,68 +172,80 @@ impl LeetcodeWeb {
             }
             let ranks = future::join_all(ranks).await;
 
+            let mut zero_player_page_cnt = 0;
             for rank_result in ranks.iter() {
-                if let Ok(rank) = rank_result {
-                    assert_eq!(rank.submissions.len(), rank.total_rank.len());
+                match rank_result {
+                    Ok(rank) => {
+                        assert_eq!(rank.submissions.len(), rank.total_rank.len());
 
-                    let playeres_in_page = rank.submissions.len();
-                    for i in 0..playeres_in_page {
-                        let submission_hashmap = &rank.submissions[i];
-                        let rank = &rank.total_rank[i];
-
-                        if !searching_players.contains(&rank.username) {
-                            continue;
+                        let playeres_in_page = rank.submissions.len();
+                        if playeres_in_page == 0 {
+                            zero_player_page_cnt += 1;
                         }
+                        for i in 0..playeres_in_page {
+                            let submission_hashmap = &rank.submissions[i];
+                            let rank = &rank.total_rank[i];
 
-                        searching_players.remove(&rank.username);
-                        let mut submissions_vec = Vec::<Submission>::new();
+                            if !searching_players.contains(&rank.username) {
+                                continue;
+                            }
 
-                        for question_index in 0..questions.len() {
-                            let question = &questions[question_index];
-                            let question_id = question.question_id;
-                            let question_id_str = question_id.to_string();
+                            searching_players.remove(&rank.username);
+                            let mut submissions_vec = Vec::<Submission>::new();
 
-                            match submission_hashmap.get(&question_id_str) {
-                                None => {
-                                    let submission_status;
-                                    if self.is_live {
-                                        submission_status = SubmissionStatus::Pending;
-                                    } else {
-                                        submission_status = SubmissionStatus::Unaccepted;
+                            for question_index in 0..questions.len() {
+                                let question = &questions[question_index];
+                                let question_id = question.question_id;
+                                let question_id_str = question_id.to_string();
+
+                                match submission_hashmap.get(&question_id_str) {
+                                    None => {
+                                        let submission_status;
+                                        if self.is_live {
+                                            submission_status = SubmissionStatus::Pending;
+                                        } else {
+                                            submission_status = SubmissionStatus::Unaccepted;
+                                        }
+
+                                        submissions_vec.push(Submission {
+                                            fail_count: 0,
+                                            finish_time: 0,
+                                            status: submission_status,
+                                            score: 0,
+                                            title: format!("T{}", question_index + 1),
+                                        });
                                     }
-
-                                    submissions_vec.push(Submission {
-                                        fail_count: 0,
-                                        finish_time: 0,
-                                        status: submission_status,
-                                        score: 0,
-                                        title: format!("T{}", question_index + 1),
-                                    });
-                                }
-                                Some(submission) => {
-                                    submissions_vec.push(Submission {
-                                        fail_count: submission.fail_count,
-                                        finish_time: submission.date - contest_info.start_time,
-                                        status: SubmissionStatus::Accepted,
-                                        score: question.credit,
-                                        title: format!("T{}", question_index + 1),
-                                    });
+                                    Some(submission) => {
+                                        submissions_vec.push(Submission {
+                                            fail_count: submission.fail_count,
+                                            finish_time: submission.date - contest_info.start_time,
+                                            status: SubmissionStatus::Accepted,
+                                            score: question.credit,
+                                            title: format!("T{}", question_index + 1),
+                                        });
+                                    }
                                 }
                             }
-                        }
 
-                        website_players.push(WebsiteUser {
-                            username: rank.username.clone(),
-                            country: rank.country_name.clone(),
-                            finish_time: rank.finish_time - contest_info.start_time,
-                            global_rank: rank.rank,
-                            score: rank.score,
-                            submissions: submissions_vec,
-                        });
+                            website_players.push(WebsiteUser {
+                                username: rank.username.clone(),
+                                country: rank.country_name.clone(),
+                                finish_time: rank.finish_time - contest_info.start_time,
+                                global_rank: rank.rank,
+                                score: rank.score,
+                                submissions: submissions_vec,
+                            });
+                        }
+                    }
+                    Err(err) => {
+                        println!("[Error] When fetching rank result, e={}", err);
                     }
                 }
             }
 
+            if self.verbose && zero_player_page_cnt == self.config.concurrent {
+                println!("[INFO] Exit searching, ignoring max_page, already hit the end of page");
+            }
             page += self.config.concurrent;
         }
 
@@ -283,7 +295,7 @@ impl LeetcodeWeb {
                     web_contests.push(user.clone());
                 }
                 Err(err) => {
-                    println!("[ERROR] when fetching contest {}", err);
+                    println!("[ERROR] When fetching contest {}", err);
                 }
             }
         }

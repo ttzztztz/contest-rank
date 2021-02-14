@@ -26,10 +26,10 @@ async fn write_cache_file(key: &str, data: &str) -> bool {
     let path = cache_path!(key);
     let cache_path = Path::new(CACHE_FILE_PATH);
     if !cache_path.exists() {
-        println!("[INFO] cache path doesn't exist, mkdir={}", CACHE_FILE_PATH);
+        println!("[INFO] Cache path doesn't exist, mkdir={}", CACHE_FILE_PATH);
         if let Err(err) = fs::create_dir_all("./cache").await {
             println!(
-                "[WARN] cache path doesn't exist, cannot make, path={}, e={}",
+                "[WARN] Cache path doesn't exist, cannot make, path={}, e={}",
                 CACHE_FILE_PATH, err
             );
             return false;
@@ -38,7 +38,7 @@ async fn write_cache_file(key: &str, data: &str) -> bool {
 
     if cache_path.is_file() {
         println!(
-            "[WARN] cache path is not dir, is a file, path={}",
+            "[WARN] Cache path is not dir, is a file, path={}",
             CACHE_FILE_PATH
         );
         return false;
@@ -50,12 +50,12 @@ async fn write_cache_file(key: &str, data: &str) -> bool {
                 return true;
             }
             Err(err) => {
-                println!("[ERROR] when writing cache file, path={}, e={}", path, err);
+                println!("[ERROR] When writing cache file, path={}, e={}", path, err);
             }
         },
         Err(err) => {
             println!(
-                "[ERROR] error when creating cache file, path={}, e={}",
+                "[ERROR] When creating cache file, path={}, e={}",
                 path, err
             );
         }

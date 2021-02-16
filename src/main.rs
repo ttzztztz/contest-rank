@@ -75,7 +75,6 @@ fn main() {
         Some(handler) => {
             println!("[INFO] Prparing data, please wait...");
 
-            let website_contests;
             if is_live {
                 let website =
                     (handler.new)(is_verbose, settings.config.clone(), runtime.clone(), true);
@@ -83,7 +82,7 @@ fn main() {
             } else {
                 let website =
                     (handler.new)(is_verbose, settings.config.clone(), runtime.clone(), false);
-                website_contests = website.render();
+                let website_contests = website.render();
                 let render_object = convert_website_object(website_contests, is_live);
                 render::render(render_object, hide_submission);
             }

@@ -1,5 +1,5 @@
 /target
-DS_Store
+.DS_Store
 cache.json
 /cache
 *.cache

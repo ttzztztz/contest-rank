@@ -76,10 +76,10 @@ pub fn convert_website_object(
     }
 
     aggregate.sort_by(|lhs, rhs| {
-        if lhs.win_count == rhs.win_count {
-            return rhs.total_score.cmp(&lhs.total_score);
+        if lhs.total_score == rhs.total_score {
+            return lhs.total_time.cmp(&rhs.total_time);
         }
-        return rhs.win_count.cmp(&lhs.win_count);
+        return rhs.total_score.cmp(&lhs.total_score);
     });
 
     return RenderObject {

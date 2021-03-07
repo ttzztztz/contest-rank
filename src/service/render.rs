@@ -2,22 +2,18 @@ use crate::{model::render, utils::finish_time};
 use chrono::{prelude, TimeZone};
 
 fn render_medal(local_rank: u32) -> &'static str {
-    if local_rank == 1 {
-        return "🏅️";
-    } else if local_rank == 2 {
-        return "🥈";
-    } else if local_rank == 3 {
-        return "🥉";
-    } else {
-        return "👴";
+    match local_rank {
+        1 => "🏅️",
+        2 => "🥈",
+        3 => "🥉",
+        _ => "👴",
     }
 }
 
 fn render_fail_count(fail_count: u32) -> String {
-    if fail_count == 0 {
-        return String::from("🌟BUG FREE");
-    } else {
-        return format!("🐛{}", fail_count);
+    match fail_count {
+        0 => String::from("🌟BUG FREE"),
+        _ => format!("🐛{}", fail_count),
     }
 }
 

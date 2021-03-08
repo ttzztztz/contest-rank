@@ -101,11 +101,13 @@ pub fn render(object: render::RenderObject, hide_submission: bool) {
     }
 
     if !object.is_live && object.data.len() >= 2 && !object.aggregate.is_empty() {
-        println!("🍎 Overall Data");
+        println!("🍎Overall Data");
         // render aggregate data
-        for aggregate in object.aggregate.iter() {
+        for idx in 0..object.aggregate.len() {
+            let aggregate = &object.aggregate[idx];
             println!(
-                "  👴{:<24} ✨{:<6} 🏅️{:<3} ⚡️{:<4} ⏰{}",
+                "  {}{:<24} ✨{:<6} 🏅️{:<3} ⚡️{:<4} ⏰{}",
+                render_medal(1u32 + (idx as u32)),
                 aggregate.username,
                 aggregate.total_score,
                 aggregate.win_count,

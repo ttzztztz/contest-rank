@@ -76,9 +76,6 @@ pub fn convert_website_object(
     }
 
     aggregate.sort_by(|lhs, rhs| {
-        if lhs.total_score == rhs.total_score && lhs.total_time == rhs.total_time {
-            return rhs.win_count.cmp(&lhs.win_count);
-        }
         if lhs.total_score == rhs.total_score {
             return lhs.total_time.cmp(&rhs.total_time);
         }
